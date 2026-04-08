@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#10b981" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="الحصون الخمسة" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="تطبيق متابعة حفظ القرآن الكريم بطريقة الحصون الخمسة" />
+  <title>الحصون الخمسة — لحفظ القرآن الكريم</title>
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2310b981'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white'%3E%F0%9F%95%8C%3C/text%3E%3C/svg%3E" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2310b981'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white'%3E%F0%9F%95%8C%3C/text%3E%3C/svg%3E" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    html, body {
+      font-family: 'Noto Naskh Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+      overscroll-behavior-y: contain;
+    }
+    body {
+      margin: 0;
+      background: #fafaf9;
+    }
+    .dark body {
+      background: #0f172a;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+    .quran-text {
+      font-family: 'Amiri Quran', 'Scheherazade New', 'Traditional Arabic', serif;
+    }
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #fafaf9;
+      gap: 16px;
+      z-index: 9999;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #e7e5e4;
+      border-top-color: #10b981;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="loading-screen">
+    <div class="spinner"></div>
+    <p style="color: #64748b; font-size: 14px;">جاري تحميل التطبيق...</p>
+  </div>
+  <div id="root"></div>
+
+  <script type="text/babel" data-type="module">
+    const { useState, useEffect, useMemo } = React;
+
+    // ===== Icons (inline SVG to avoid extra dependencies) =====
+    const Icon = ({ path, size = 18, className = '' }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        {path}
+      </svg>
+    );
+    const Home = (p) => <Icon {...p} path={<><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>} />;
+    const Calendar = (p) => <Icon {...p} path={<><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></>} />;
+    const BarChart3 = (p) => <Icon {...p} path={<><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></>} />;
+    const SettingsIcon = (p) => <Icon {...p} path={<><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></>} />;
+    const BookOpen = (p) => <Icon {...p} path={<><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>} />;
+    const Book = (p) => <Icon {...p} path={<><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></>} />;
+    const Check = (p) => <Icon {...p} path={<polyline points="20 6 9 17 4 12"/>} />;
+    const Minus = (p) => <Icon {...p} path={<path d="M5 12h14"/>} />;
+    const X = (p) => <Icon {...p} path={<><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>} />;
+    const Moon = (p) => <Icon {...p} path={<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>} />;
+    const Sun = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></>} />;
+    const ChevronRight = (p) => <Icon {...p} path={<polyline points="9 18 15 12 9 6"/>} />;
+    const ChevronLeft = (p) => <Icon {...p} path={<polyline points="15 18 9 12 15 6"/>} />;
+    const Flame = (p) => <Icon {...p} path={<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>} />;
+    const Award = (p) => <Icon {...p} path={<><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></>} />;
+    const TrendingUp = (p) => <Icon {...p} path={<><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></>} />;
+    const Clock = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>} />;
+    const Edit3 = (p) => <Icon {...p} path={<><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></>} />;
+    const Download = (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></>} />;
+    const Upload = (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></>} />;
+
+    // ===== Surah data =====
+    const SURAHS = [
+      { n: 1, name: 'الفاتحة', page: 1 }, { n: 2, name: 'البقرة', page: 2 }, { n: 3, name: 'آل عمران', page: 50 },
+      { n: 4, name: 'النساء', page: 77 }, { n: 5, name: 'المائدة', page: 106 }, { n: 6, name: 'الأنعام', page: 128 },
+      { n: 7, name: 'الأعراف', page: 151 }, { n: 8, name: 'الأنفال', page: 177 }, { n: 9, name: 'التوبة', page: 187 },
+      { n: 10, name: 'يونس', page: 208 }, { n: 11, name: 'هود', page: 221 }, { n: 12, name: 'يوسف', page: 235 },
+      { n: 13, name: 'الرعد', page: 249 }, { n: 14, name: 'إبراهيم', page: 255 }, { n: 15, name: 'الحجر', page: 262 },
+      { n: 16, name: 'النحل', page: 267 }, { n: 17, name: 'الإسراء', page: 282 }, { n: 18, name: 'الكهف', page: 293 },
+      { n: 19, name: 'مريم', page: 305 }, { n: 20, name: 'طه', page: 312 }, { n: 21, name: 'الأنبياء', page: 322 },
+      { n: 22, name: 'الحج', page: 332 }, { n: 23, name: 'المؤمنون', page: 342 }, { n: 24, name: 'النور', page: 350 },
+      { n: 25, name: 'الفرقان', page: 359 }, { n: 26, name: 'الشعراء', page: 367 }, { n: 27, name: 'النمل', page: 377 },
+      { n: 28, name: 'القصص', page: 385 }, { n: 29, name: 'العنكبوت', page: 396 }, { n: 30, name: 'الروم', page: 404 },
+      { n: 31, name: 'لقمان', page: 411 }, { n: 32, name: 'السجدة', page: 415 }, { n: 33, name: 'الأحزاب', page: 418 },
+      { n: 34, name: 'سبأ', page: 428 }, { n: 35, name: 'فاطر', page: 434 }, { n: 36, name: 'يس', page: 440 },
+      { n: 37, name: 'الصافات', page: 446 }, { n: 38, name: 'ص', page: 453 }, { n: 39, name: 'الزمر', page: 458 },
+      { n: 40, name: 'غافر', page: 467 }, { n: 41, name: 'فصلت', page: 477 }, { n: 42, name: 'الشورى', page: 483 },
+      { n: 43, name: 'الزخرف', page: 489 }, { n: 44, name: 'الدخان', page: 496 }, { n: 45, name: 'الجاثية', page: 499 },
+      { n: 46, name: 'الأحقاف', page: 502 }, { n: 47, name: 'محمد', page: 507 }, { n: 48, name: 'الفتح', page: 511 },
+      { n: 49, name: 'الحجرات', page: 515 }, { n: 50, name: 'ق', page: 518 }, { n: 51, name: 'الذاريات', page: 520 },
+      { n: 52, name: 'الطور', page: 523 }, { n: 53, name: 'النجم', page: 526 }, { n: 54, name: 'القمر', page: 528 },
+      { n: 55, name: 'الرحمن', page: 531 }, { n: 56, name: 'الواقعة', page: 534 }, { n: 57, name: 'الحديد', page: 537 },
+      { n: 58, name: 'المجادلة', page: 542 }, { n: 59, name: 'الحشر', page: 545 }, { n: 60, name: 'الممتحنة', page: 549 },
+      { n: 61, name: 'الصف', page: 551 }, { n: 62, name: 'الجمعة', page: 553 }, { n: 63, name: 'المنافقون', page: 554 },
+      { n: 64, name: 'التغابن', page: 556 }, { n: 65, name: 'الطلاق', page: 558 }, { n: 66, name: 'التحريم', page: 560 },
+      { n: 67, name: 'الملك', page: 562 }, { n: 68, name: 'القلم', page: 564 }, { n: 69, name: 'الحاقة', page: 566 },
+      { n: 70, name: 'المعارج', page: 568 }, { n: 71, name: 'نوح', page: 570 }, { n: 72, name: 'الجن', page: 572 },
+      { n: 73, name: 'المزمل', page: 574 }, { n: 74, name: 'المدثر', page: 575 }, { n: 75, name: 'القيامة', page: 577 },
+      { n: 76, name: 'الإنسان', page: 578 }, { n: 77, name: 'المرسلات', page: 580 }, { n: 78, name: 'النبأ', page: 582 },
+      { n: 79, name: 'النازعات', page: 583 }, { n: 80, name: 'عبس', page: 585 }, { n: 81, name: 'التكوير', page: 586 },
+      { n: 82, name: 'الانفطار', page: 587 }, { n: 83, name: 'المطففين', page: 587 }, { n: 84, name: 'الانشقاق', page: 589 },
+      { n: 85, name: 'البروج', page: 590 }, { n: 86, name: 'الطارق', page: 591 }, { n: 87, name: 'الأعلى', page: 591 },
+      { n: 88, name: 'الغاشية', page: 592 }, { n: 89, name: 'الفجر', page: 593 }, { n: 90, name: 'البلد', page: 594 },
+      { n: 91, name: 'الشمس', page: 595 }, { n: 92, name: 'الليل', page: 595 }, { n: 93, name: 'الضحى', page: 596 },
+      { n: 94, name: 'الشرح', page: 596 }, { n: 95, name: 'التين', page: 597 }, { n: 96, name: 'العلق', page: 597 },
+      { n: 97, name: 'القدر', page: 598 }, { n: 98, name: 'البينة', page: 598 }, { n: 99, name: 'الزلزلة', page: 599 },
+      { n: 100, name: 'العاديات', page: 599 }, { n: 101, name: 'القارعة', page: 600 }, { n: 102, name: 'التكاثر', page: 600 },
+      { n: 103, name: 'العصر', page: 601 }, { n: 104, name: 'الهمزة', page: 601 }, { n: 105, name: 'الفيل', page: 601 },
+      { n: 106, name: 'قريش', page: 602 }, { n: 107, name: 'الماعون', page: 602 }, { n: 108, name: 'الكوثر', page: 602 },
+      { n: 109, name: 'الكافرون', page: 603 }, { n: 110, name: 'النصر', page: 603 }, { n: 111, name: 'المسد', page: 603 },
+      { n: 112, name: 'الإخلاص', page: 604 }, { n: 113, name: 'الفلق', page: 604 }, { n: 114, name: 'الناس', page: 604 },
+    ];
+    const TOTAL_PAGES = 604;
+    const surahForPage = (page) => {
+      for (let i = SURAHS.length - 1; i >= 0; i--) {
+        if (SURAHS[i].page <= page) return SURAHS[i];
+      }
+      return SURAHS[0];
+    };
+
+    // ===== Constants =====
+    const FORTRESSES = [
+      { key: 'reading_continuous', name: 'القراءة المستمرة', desc: 'حزب يومياً', fortress: 1, color: 'emerald' },
+      { key: 'listening_methodical', name: 'الاستماع المنهجي', desc: 'حزب يومياً', fortress: 1, color: 'teal' },
+      { key: 'preparation', name: 'التحضير', desc: 'أسبوعي + ليلي + قبلي', fortress: 2, color: 'amber', hasSubtasks: true },
+      { key: 'new_memorization', name: 'الحفظ الجديد', desc: 'حسب الخطة اليومية', fortress: 3, color: 'green' },
+      { key: 'near_review', name: 'مراجعة القريب', desc: '٢٠ صفحة قبل الحفظ الجديد', fortress: 4, color: 'sky' },
+      { key: 'far_review', name: 'مراجعة البعيد', desc: 'حسب الجدول', fortress: 5, color: 'indigo' },
+    ];
+    const SUBTASKS = [
+      { key: 'preparation_weekly', name: 'إسبوعي', short: '٧ صفحات' },
+      { key: 'preparation_nightly', name: 'ليلي', short: '١٥ د استماع + ١٥ د قراءة' },
+      { key: 'preparation_pre_session', name: 'قبلي', short: '١٥ د قبل الحفظ' },
+    ];
+    const WEEK_DAYS = [
+      { idx: 6, name: 'السبت', short: 'السبت' },
+      { idx: 0, name: 'الأحد', short: 'الأحد' },
+      { idx: 1, name: 'الإثنين', short: 'الإثنين' },
+      { idx: 2, name: 'الثلاثاء', short: 'الثلاثاء' },
+      { idx: 3, name: 'الأربعاء', short: 'الأربعاء' },
+      { idx: 4, name: 'الخميس', short: 'الخميس' },
+      { idx: 5, name: 'الجمعة', short: 'الجمعة' },
+    ];
+    const AR_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const AR_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    const DEFAULT_TARGETS = {
+      reading_continuous: 15, listening_methodical: 15, preparation: 10,
+      new_memorization: 30, near_review: 15, far_review: 20,
+    };
+    const STORAGE_KEY = 'husun_quran_data_v2';
+
+    const todayKey = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    const dateKeyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const arabicDate = (dateStr) => {
+      const d = new Date(dateStr);
+      return `${AR_DAYS[d.getDay()]}، ${d.getDate()} ${AR_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    };
+    const startOfWeek = (date) => {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = (day + 1) % 7;
+      d.setDate(d.getDate() - diff);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
+    const loadData = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      return {
+        plan: { daily_pages: 0.5, start_page: 2, end_page: 604, rest_days: [5], start_date: todayKey() },
+        settings: {
+          dark_mode: false,
+          targets: { ...DEFAULT_TARGETS },
+          far_review: { active_days: [6], page_cap: 40 },
+          near_review_pages: 20,
+        },
+        logs: {},
+      };
+    };
+    const saveData = (data) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {} };
+
+    const pagesMemorizedBy = (plan, dateStr) => {
+      const start = new Date(plan.start_date);
+      const target = new Date(dateStr);
+      if (target < start) return 0;
+      let pages = 0;
+      const cur = new Date(start);
+      while (cur <= target) {
+        if (!plan.rest_days.includes(cur.getDay())) pages += plan.daily_pages;
+        cur.setDate(cur.getDate() + 1);
+      }
+      return pages;
+    };
+    const pagesForDate = (plan, dateStr) => {
+      const d = new Date(dateStr);
+      if (plan.rest_days.includes(d.getDay())) return null;
+      const before = pagesMemorizedBy(plan, dateKeyOf(new Date(d.getTime() - 86400000)));
+      const todayStart = plan.start_page + before;
+      const todayEnd = todayStart + plan.daily_pages - 1;
+      return { from: todayStart, to: todayEnd, count: plan.daily_pages };
+    };
+    const nearReviewRange = (plan, dateStr, nearPages) => {
+      const today = pagesForDate(plan, dateStr);
+      if (!today) return null;
+      const startPage = Math.max(plan.start_page, today.from - nearPages);
+      const endPage = today.from - 1;
+      if (endPage < startPage) return null;
+      return { from: startPage, to: endPage };
+    };
+    const farReviewRange = (plan, dateStr, nearPages, cap) => {
+      const memorizedTotalBefore = Math.floor(pagesMemorizedBy(plan, dateKeyOf(new Date(new Date(dateStr).getTime() - 86400000))));
+      const lastMemorizedPage = plan.start_page + memorizedTotalBefore - 1;
+      const farEnd = lastMemorizedPage - nearPages;
+      if (farEnd < plan.start_page) return null;
+      const farStart = Math.max(plan.start_page, farEnd - cap + 1);
+      return { from: farStart, to: farEnd };
+    };
+
+    const colorClasses = {
+      emerald: 'from-emerald-500 to-emerald-600', teal: 'from-teal-500 to-teal-600',
+      amber: 'from-amber-500 to-amber-600', green: 'from-green-500 to-green-600',
+      sky: 'from-sky-500 to-sky-600', indigo: 'from-indigo-500 to-indigo-600',
+    };
+
+    // ===== Main App =====
+    function App() {
+      const [data, setData] = useState(loadData);
+      const [page, setPage] = useState('dashboard');
+      const [selectedDate, setSelectedDate] = useState(todayKey());
+
+      useEffect(() => { saveData(data); }, [data]);
+      useEffect(() => { document.documentElement.classList.toggle('dark', data.settings.dark_mode); }, [data.settings.dark_mode]);
+
+      const update = (fn) => setData((d) => fn({ ...d }));
+      const getLog = (dateKey) => data.logs[dateKey] || { fortresses: {}, subtasks: {}, notes: '' };
+
+      const setFortressStatus = (dateKey, fkey, status) => {
+        update((d) => {
+          const log = { ...(d.logs[dateKey] || { fortresses: {}, subtasks: {}, notes: '' }) };
+          log.fortresses = { ...log.fortresses };
+          const cur = log.fortresses[fkey] || { status: 'not_completed', actual_minutes: 0, notes: '' };
+          log.fortresses[fkey] = { ...cur, status };
+          d.logs = { ...d.logs, [dateKey]: log };
+          return d;
+        });
+      };
+      const setFortressMinutes = (dateKey, fkey, minutes) => {
+        update((d) => {
+          const log = { ...(d.logs[dateKey] || { fortresses: {}, subtasks: {}, notes: '' }) };
+          log.fortresses = { ...log.fortresses };
+          const cur = log.fortresses[fkey] || { status: 'not_completed', actual_minutes: 0, notes: '' };
+          log.fortresses[fkey] = { ...cur, actual_minutes: minutes };
+          d.logs = { ...d.logs, [dateKey]: log };
+          return d;
+        });
+      };
+      const setFortressNotes = (dateKey, fkey, notes) => {
+        update((d) => {
+          const log = { ...(d.logs[dateKey] || { fortresses: {}, subtasks: {}, notes: '' }) };
+          log.fortresses = { ...log.fortresses };
+          const cur = log.fortresses[fkey] || { status: 'not_completed', actual_minutes: 0, notes: '' };
+          log.fortresses[fkey] = { ...cur, notes };
+          d.logs = { ...d.logs, [dateKey]: log };
+          return d;
+        });
+      };
+      const setSubtaskStatus = (dateKey, skey, status) => {
+        update((d) => {
+          const log = { ...(d.logs[dateKey] || { fortresses: {}, subtasks: {}, notes: '' }) };
+          log.subtasks = { ...log.subtasks, [skey]: status };
+          d.logs = { ...d.logs, [dateKey]: log };
+          return d;
+        });
+      };
+      const resetDay = (dateKey) => {
+        update((d) => {
+          const newLogs = { ...d.logs };
+          delete newLogs[dateKey];
+          d.logs = newLogs;
+          return d;
+        });
+      };
+
+      const stats = useMemo(() => {
+        const now = new Date();
+        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthLogs = Object.entries(data.logs).filter(([k]) => k.startsWith(monthKey));
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+        const perFortress = {};
+        FORTRESSES.forEach((f) => { perFortress[f.key] = { completed: 0, partial: 0, minutes: 0 }; });
+
+        let fullDays = 0;
+        monthLogs.forEach(([k, log]) => {
+          const dt = new Date(k);
+          const isFar = data.settings.far_review.active_days.includes(dt.getDay());
+          const isRest = data.plan.rest_days.includes(dt.getDay());
+          const expectedFortresses = FORTRESSES.filter((f) => {
+            if (f.key === 'far_review') return isFar;
+            if ((f.key === 'new_memorization' || f.key === 'near_review') && isRest) return false;
+            return true;
+          });
+          FORTRESSES.forEach((f) => {
+            const fl = log.fortresses[f.key];
+            if (fl) {
+              if (fl.status === 'completed') perFortress[f.key].completed++;
+              if (fl.status === 'partial') perFortress[f.key].partial++;
+              perFortress[f.key].minutes += Number(fl.actual_minutes) || 0;
+            }
+          });
+          const expectedCompleted = expectedFortresses.filter((f) => log.fortresses[f.key]?.status === 'completed').length;
+          if (expectedCompleted === expectedFortresses.length && expectedFortresses.length > 0) fullDays++;
+        });
+
+        let streak = 0;
+        const d = new Date();
+        while (true) {
+          const k = dateKeyOf(d);
+          const log = data.logs[k];
+          if (!log) break;
+          const isFar = data.settings.far_review.active_days.includes(d.getDay());
+          const isRest = data.plan.rest_days.includes(d.getDay());
+          const expected = FORTRESSES.filter((f) => {
+            if (f.key === 'far_review') return isFar;
+            if ((f.key === 'new_memorization' || f.key === 'near_review') && isRest) return false;
+            return true;
+          });
+          const allDone = expected.every((f) => log.fortresses[f.key]?.status === 'completed');
+          if (!allDone) break;
+          streak++;
+          d.setDate(d.getDate() - 1);
+        }
+
+        const monthlyConsistency = Math.round((fullDays / daysInMonth) * 100);
+
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - 6);
+        let weekFull = 0;
+        for (let i = 0; i < 7; i++) {
+          const dt = new Date(weekStart);
+          dt.setDate(dt.getDate() + i);
+          const k = dateKeyOf(dt);
+          const log = data.logs[k];
+          const isFar = data.settings.far_review.active_days.includes(dt.getDay());
+          const isRest = data.plan.rest_days.includes(dt.getDay());
+          const expected = FORTRESSES.filter((f) => {
+            if (f.key === 'far_review') return isFar;
+            if ((f.key === 'new_memorization' || f.key === 'near_review') && isRest) return false;
+            return true;
+          });
+          if (log && expected.length > 0 && expected.every((f) => log.fortresses[f.key]?.status === 'completed')) weekFull++;
+        }
+        const weeklyConsistency = Math.round((weekFull / 7) * 100);
+
+        const sorted = [...FORTRESSES].sort((a, b) => perFortress[b.key].completed - perFortress[a.key].completed);
+        const strongest = sorted[0];
+        const weakest = sorted[sorted.length - 1];
+
+        const memorized = pagesMemorizedBy(data.plan, todayKey());
+        const totalPlanPages = data.plan.end_page - data.plan.start_page + 1;
+        const planProgress = Math.min(100, Math.round((memorized / totalPlanPages) * 100));
+        const activeDaysPerWeek = 7 - data.plan.rest_days.length;
+        const remainingPages = Math.max(0, totalPlanPages - memorized);
+        const remainingDays = Math.ceil(remainingPages / data.plan.daily_pages);
+        const finishDate = new Date();
+        let added = 0;
+        while (added < remainingDays) {
+          finishDate.setDate(finishDate.getDate() + 1);
+          if (!data.plan.rest_days.includes(finishDate.getDay())) added++;
+        }
+
+        return { perFortress, fullDays, daysInMonth, monthlyConsistency, weeklyConsistency, streak, strongest, weakest, memorized, totalPlanPages, planProgress, activeDaysPerWeek, finishDate };
+      }, [data.logs, data.plan, data.settings.far_review.active_days]);
+
+      const todayLog = getLog(todayKey());
+      const todayDate = new Date();
+      const todayIsFar = data.settings.far_review.active_days.includes(todayDate.getDay());
+      const todayIsRest = data.plan.rest_days.includes(todayDate.getDay());
+      const todayExpected = FORTRESSES.filter((f) => {
+        if (f.key === 'far_review') return todayIsFar;
+        if ((f.key === 'new_memorization' || f.key === 'near_review') && todayIsRest) return false;
+        return true;
+      });
+      const todayCompleted = todayExpected.filter((f) => todayLog.fortresses[f.key]?.status === 'completed').length;
+      const todayProgress = todayExpected.length > 0 ? Math.round((todayCompleted / todayExpected.length) * 100) : 0;
+
+      const isDark = data.settings.dark_mode;
+
+      return (
+        <div dir="rtl" className={isDark ? 'dark' : ''}>
+          <div className={`min-h-screen ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-stone-50 text-slate-800'}`}>
+            <header className={`sticky top-0 z-10 backdrop-blur ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-stone-200'} border-b`}>
+              <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white">
+                    <BookOpen size={20} />
+                  </div>
+                  <div>
+                    <h1 className="font-bold text-base leading-tight">الحصون الخمسة</h1>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>لحفظ القرآن الكريم</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => update((d) => { d.settings = { ...d.settings, dark_mode: !d.settings.dark_mode }; return d; })}
+                  className={`p-2 rounded-lg ${isDark ? 'bg-slate-800' : 'bg-stone-100'}`}
+                >
+                  {isDark ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
+              </div>
+            </header>
+
+            <main className="max-w-5xl mx-auto px-4 py-5 pb-32">
+              {page === 'dashboard' && <Dashboard data={data} isDark={isDark} todayLog={todayLog} todayProgress={todayProgress} todayCompleted={todayCompleted} todayExpected={todayExpected} stats={stats} setPage={setPage} setSelectedDate={setSelectedDate} todayIsRest={todayIsRest} />}
+              {page === 'log' && <DailyLog data={data} isDark={isDark} selectedDate={selectedDate} setSelectedDate={setSelectedDate} getLog={getLog} setFortressStatus={setFortressStatus} setFortressMinutes={setFortressMinutes} setFortressNotes={setFortressNotes} setSubtaskStatus={setSubtaskStatus} resetDay={resetDay} />}
+              {page === 'mushaf' && <Mushaf data={data} isDark={isDark} />}
+              {page === 'plan' && <Plan data={data} update={update} isDark={isDark} stats={stats} />}
+              {page === 'stats' && <Stats data={data} isDark={isDark} stats={stats} />}
+              {page === 'settings' && <SettingsPage data={data} update={update} isDark={isDark} />}
+            </main>
+
+            <nav className={`fixed bottom-0 inset-x-0 ${isDark ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-stone-200'} border-t backdrop-blur`} style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}>
+              <div className="max-w-5xl mx-auto px-1 py-2 flex justify-around">
+                {[
+                  { id: 'dashboard', icon: Home, label: 'الرئيسية' },
+                  { id: 'log', icon: Calendar, label: 'السجل' },
+                  { id: 'mushaf', icon: Book, label: 'المصحف' },
+                  { id: 'plan', icon: BookOpen, label: 'الخطة' },
+                  { id: 'stats', icon: BarChart3, label: 'الإحصائيات' },
+                  { id: 'settings', icon: SettingsIcon, label: 'الإعدادات' },
+                ].map((item) => {
+                  const I = item.icon;
+                  const active = page === item.id;
+                  return (
+                    <button key={item.id} onClick={() => { setPage(item.id); if (item.id === 'log') setSelectedDate(todayKey()); }} className={`flex flex-col items-center gap-0.5 px-1.5 py-1.5 rounded-lg transition active:scale-95 min-w-0 ${active ? 'text-emerald-600' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <I size={19} />
+                      <span className="text-[9px] font-medium truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
+          </div>
+        </div>
+      );
+    }
+
+    // ===== Dashboard =====
+    function Dashboard({ data, isDark, todayLog, todayProgress, todayCompleted, todayExpected, stats, setPage, setSelectedDate, todayIsRest }) {
+      const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
+      const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
+      const todayMemo = pagesForDate(data.plan, todayKey());
+
+      return (
+        <div className="space-y-5">
+          <div>
+            <p className={`text-sm ${subtle}`}>{arabicDate(todayKey())}</p>
+            <h2 className="text-2xl font-bold mt-1">السلام عليكم، بارك الله في يومك</h2>
+          </div>
+          {todayIsRest && (
+            <div className={`rounded-xl border-2 border-dashed ${isDark ? 'border-amber-700 bg-amber-900/20' : 'border-amber-300 bg-amber-50'} p-4 text-center`}>
+              <p className="font-semibold text-amber-700 dark:text-amber-400">يوم راحة من الحفظ الجديد</p>
+              <p className={`text-xs mt-1 ${subtle}`}>ركّز اليوم على القراءة والاستماع والمراجعة</p>
+            </div>
+          )}
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${subtle}`}>إنجاز اليوم</p>
+                <p className="text-3xl font-bold mt-1">{todayCompleted} / {todayExpected.length}</p>
+                <p className={`text-sm mt-1 ${subtle}`}>حصون مطلوبة اليوم</p>
+              </div>
+              <div className="relative w-20 h-20">
+                <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
+                  <circle cx="40" cy="40" r="34" fill="none" stroke={isDark ? '#334155' : '#e7e5e4'} strokeWidth="8" />
+                  <circle cx="40" cy="40" r="34" fill="none" stroke="url(#g)" strokeWidth="8" strokeLinecap="round" strokeDasharray={`${(todayProgress / 100) * 213.6} 213.6`} />
+                  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#10b981" /><stop offset="100%" stopColor="#0d9488" /></linearGradient></defs>
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-sm font-bold">{todayProgress}%</div>
+              </div>
+            </div>
+            {todayMemo && (
+              <div className={`mt-4 p-3 rounded-xl ${isDark ? 'bg-slate-900' : 'bg-emerald-50'}`}>
+                <p className={`text-xs ${subtle}`}>حفظ اليوم</p>
+                <p className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {todayMemo.from === todayMemo.to ? `صفحة ${todayMemo.from}` : `صفحات ${todayMemo.from} – ${todayMemo.to}`}
+                  <span className={`text-xs font-normal mr-2 ${subtle}`}>({surahForPage(Math.floor(todayMemo.from)).name})</span>
+                </p>
+              </div>
+            )}
+            <button onClick={() => { setSelectedDate(todayKey()); setPage('log'); }} className="mt-4 w-full py-2.5 rounded-xl bg-gradient-to-l from-emerald-500 to-teal-600 text-white font-semibold flex items-center justify-center gap-2">
+              <Edit3 size={16} /> تحديث إنجاز اليوم
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard isDark={isDark} icon={Flame} label="السلسلة" value={stats.streak} suffix="يوم" color="text-orange-500" />
+            <StatCard isDark={isDark} icon={TrendingUp} label="أسبوعي" value={stats.weeklyConsistency} suffix="%" color="text-emerald-500" />
+            <StatCard isDark={isDark} icon={Award} label="شهري" value={stats.monthlyConsistency} suffix="%" color="text-amber-500" />
+          </div>
+          <div>
+            <h3 className="font-bold mb-3">حصون اليوم</h3>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {FORTRESSES.map((f) => {
+                const fl = todayLog.fortresses[f.key];
+                const status = fl?.status || 'not_completed';
+                const isExpected = todayExpected.includes(f);
+                return (
+                  <div key={f.key} className={`rounded-xl border ${cardBg} p-4 ${!isExpected ? 'opacity-40' : ''}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${colorClasses[f.color]} flex items-center justify-center text-white text-xs font-bold`}>{f.fortress}</div>
+                          <h4 className="font-semibold">{f.name}</h4>
+                        </div>
+                        <p className={`text-xs mt-1.5 ${subtle}`}>{!isExpected ? 'غير مطلوب اليوم' : f.desc}</p>
+                      </div>
+                      {isExpected && <StatusBadge status={status} />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-bold">تقدّم الخطة</p>
+              <button onClick={() => setPage('plan')} className={`p-2 rounded-lg ${isDark ? 'bg-slate-700' : 'bg-stone-100'}`}><ChevronLeft size={18} /></button>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <p className="text-2xl font-bold">{Math.floor(stats.memorized)}</p>
+              <p className={`text-sm ${subtle}`}>من {stats.totalPlanPages} صفحة ({stats.planProgress}%)</p>
+            </div>
+            <div className={`mt-2 h-2 rounded-full ${isDark ? 'bg-slate-700' : 'bg-stone-100'} overflow-hidden`}>
+              <div className="h-full bg-gradient-to-l from-emerald-500 to-teal-600" style={{ width: `${stats.planProgress}%` }} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function StatCard({ isDark, icon: I, label, value, suffix, color }) {
+      const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
+      return (
+        <div className={`rounded-xl border ${cardBg} p-3 text-center`}>
+          <I size={18} className={`mx-auto ${color}`} />
+          <p className="text-lg font-bold mt-1">{value}<span className="text-xs font-normal mr-0.5">{suffix}</span></p>
+          <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{label}</p>
+        </div>
+      );
+    }
+    function StatusBadge({ status }) {
+      if (status === 'completed') return <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white"><Check size={16} /></div>;
+      if (status === 'partial') return <div className="w-7 h-7 rounded-full bg-amber-500 flex items-center justify-center text-white"><Minus size={16} /></div>;
+      return <div className="w-7 h-7 rounded-full bg-stone-300 dark:bg-slate-600 flex items-center justify-center text-white"><X size={16} /></div>;
+    }
+
+    // ===== Daily Log =====
+    function DailyLog({ data, isDark, selectedDate, setSelectedDate, getLog, setFortressStatus, setFortressMinutes, setFortressNotes, setSubtaskStatus, resetDay }) {
+      const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
+      const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
+      const log = getLog(selectedDate);
+      const [view, setView] = useState('day');
+      const [expandedNote, setExpandedNote] = useState(null);
+      const dt = new Date(selectedDate);
+      const isFar = data.settings.far_review.active_days.includes(dt.getDay());
+      const isRest = data.plan.rest_days.includes(dt.getDay());
+      const changeDate = (delta) => {
+        const d = new Date(selectedDate);
+        d.setDate(d.getDate() + delta);
+        setSelectedDate(dateKeyOf(d));
+      };
+      const todayMemo = pagesForDate(data.plan, selectedDate);
+      const nearRange = nearReviewRange(data.plan, selectedDate, data.settings.near_review_pages);
+      const farRange = isFar ? farReviewRange(data.plan, selectedDate, data.settings.near_review_pages, data.settings.far_review.page_cap) : null;
+      const fortressDetail = (key) => {
+        if (key === 'new_memorization' && todayMemo) return `صفحات ${todayMemo.from}${todayMemo.from === todayMemo.to ? '' : ' – ' + todayMemo.to} (${surahForPage(Math.floor(todayMemo.from)).name})`;
+        if (key === 'near_review' && nearRange) return `صفحات ${nearRange.from} – ${nearRange.to}`;
+        if (key === 'far_review' && farRange) return `صفحات ${farRange.from} – ${farRange.to}`;
+        return null;
+      };
+
+      return (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-xl font-bold">سجل الإنجاز</h2>
+            <div className={`flex rounded-lg overflow-hidden border ${isDark ? 'border-slate-700' : 'border-stone-200'}`}>
+              <button onClick={() => setView('day')} className={`px-3 py-1.5 text-xs font-semibold ${view === 'day' ? 'bg-emerald-500 text-white' : ''}`}>يومي</button>
+              <button onClick={() => setView('week')} className={`px-3 py-1.5 text-xs font-semibold ${view === 'week' ? 'bg-emerald-500 text-white' : ''}`}>أسبوعي</button>
+              <button onClick={() => setView('calendar')} className={`px-3 py-1.5 text-xs font-semibold ${view === 'calendar' ? 'bg-emerald-500 text-white' : ''}`}>التقويم</button>
+            </div>
+          </div>
+
+          {view === 'calendar' && <CalendarView data={data} isDark={isDark} onSelect={(d) => { setSelectedDate(d); setView('day'); }} />}
+          {view === 'week' && <WeeklyView data={data} isDark={isDark} selectedDate={selectedDate} setSelectedDate={setSelectedDate} setView={setView} getLog={getLog} />}
+          {view === 'day' && (
+            <>
+              <div className={`flex items-center justify-between rounded-xl border ${cardBg} px-3 py-2`}>
+                <button onClick={() => changeDate(-1)} className="p-2"><ChevronRight size={18} /></button>
+                <div className="text-center">
+                  <p className="font-semibold text-sm">{arabicDate(selectedDate)}</p>
+                  {selectedDate === todayKey() && <p className={`text-[10px] ${subtle}`}>اليوم</p>}
+                </div>
+                <button onClick={() => changeDate(1)} disabled={selectedDate >= todayKey()} className="p-2 disabled:opacity-30"><ChevronLeft size={18} /></button>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (confirm(`هل تريد إعادة تعيين إنجاز يوم ${arabicDate(selectedDate)}؟\nسيتم مسح جميع البيانات المسجلة لهذا اليوم.`)) {
+                    resetDay(selectedDate);
+                  }
+                }}
+                className="w-full py-2 rounded-xl border-2 border-amber-500 text-amber-600 dark:text-amber-400 font-semibold text-xs flex items-center justify-center gap-2"
+              >
+                <X size={14} /> إعادة تعيين إنجاز هذا اليوم
+              </button>
+
+              {isRest && (
+                <div className={`rounded-xl border-2 border-dashed ${isDark ? 'border-amber-700 bg-amber-900/20' : 'border-amber-300 bg-amber-50'} p-3 text-center text-sm`}>
+                  <span className="font-semibold text-amber-700 dark:text-amber-400">يوم راحة</span> — لا حفظ جديد ولا مراجعة قريب
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {FORTRESSES.map((f) => {
+                  const fl = log.fortresses[f.key] || { status: 'not_completed', actual_minutes: 0, notes: '' };
+                  const target = data.settings.targets[f.key] || 0;
+                  const detail = fortressDetail(f.key);
+                  const skipNew = isRest && (f.key === 'new_memorization' || f.key === 'near_review');
+                  const skipFar = f.key === 'far_review' && !isFar;
+                  const isSkipped = skipNew || skipFar;
+
+                  return (
+                    <div key={f.key} className={`rounded-2xl border ${cardBg} p-4 ${isSkipped ? 'opacity-50' : ''}`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br ${colorClasses[f.color]} flex items-center justify-center text-white font-bold`}>{f.fortress}</div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold">{f.name}</h4>
+                          <p className={`text-xs mt-0.5 ${subtle}`}>{f.desc}</p>
+                          {detail && !isSkipped && <p className="text-xs mt-1 font-semibold text-emerald-600 dark:text-emerald-400">{detail}</p>}
+                          {isSkipped && <p className="text-xs mt-1 text-amber-600 dark:text-amber-400">غير مطلوب اليوم</p>}
+                        </div>
+                      </div>
+                      {!isSkipped && (
+                        <>
+                          <div className="grid grid-cols-3 gap-2 mt-4">
+                            <StatusButton active={fl.status === 'completed'} onClick={() => setFortressStatus(selectedDate, f.key, 'completed')} color="emerald" icon={Check} label="تم" />
+                            <StatusButton active={fl.status === 'partial'} onClick={() => setFortressStatus(selectedDate, f.key, 'partial')} color="amber" icon={Minus} label="جزئي" />
+                            <StatusButton active={fl.status === 'not_completed'} onClick={() => setFortressStatus(selectedDate, f.key, 'not_completed')} color="stone" icon={X} label="لم يتم" />
+                          </div>
+                          <div className="mt-3 flex items-center gap-2">
+                            <Clock size={14} className={subtle} />
+                            <span className={`text-xs ${subtle}`}>الهدف: {target} د</span>
+                            <input type="number" min="0" value={fl.actual_minutes || ''} onChange={(e) => setFortressMinutes(selectedDate, f.key, Number(e.target.value))} placeholder="الدقائق" className={`flex-1 mr-auto text-sm px-3 py-1.5 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-stone-50 border-stone-200'} text-center`} />
+                          </div>
+                          {f.hasSubtasks && (
+                            <div className={`mt-3 pt-3 border-t ${isDark ? 'border-slate-700' : 'border-stone-200'} space-y-2`}>
+                              {SUBTASKS.map((s) => {
+                                const ss = log.subtasks[s.key] || 'not_completed';
+                                return (
+                                  <div key={s.key} className="flex items-center justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium">{s.name}</p>
+                                      <p className={`text-[10px] ${subtle}`}>{s.short}</p>
+                                    </div>
+                                    <div className="flex gap-1">
+                                      <MiniBtn active={ss === 'completed'} onClick={() => setSubtaskStatus(selectedDate, s.key, 'completed')} color="emerald"><Check size={12} /></MiniBtn>
+                                      <MiniBtn active={ss === 'partial'} onClick={() => setSubtaskStatus(selectedDate, s.key, 'partial')} color="amber"><Minus size={12} /></MiniBtn>
+                                      <MiniBtn active={ss === 'not_completed'} onClick={() => setSubtaskStatus(selectedDate, s.key, 'not_completed')} color="stone"><X size={12} /></MiniBtn>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          <button onClick={() => setExpandedNote(expandedNote === f.key ? null : f.key)} className={`mt-3 text-xs ${subtle} flex items-center gap-1`}>
+                            <Edit3 size={12} /> {fl.notes ? 'تعديل الملاحظات' : 'إضافة ملاحظات'}
+                          </button>
+                          {expandedNote === f.key && (
+                            <textarea value={fl.notes || ''} onChange={(e) => setFortressNotes(selectedDate, f.key, e.target.value)} placeholder="ملاحظات..." rows={2} className={`mt-2 w-full text-sm px-3 py-2 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-stone-50 border-stone-200'}`} />
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    function StatusButton({ active, onClick, color, icon: I, label }) {
+      const colors = {
+        emerald: active ? 'bg-emerald-500 text-white border-emerald-500' : 'border-stone-200 dark:border-slate-700 text-emerald-600',
+        amber: active ? 'bg-amber-500 text-white border-amber-500' : 'border-stone-200 dark:border-slate-700 text-amber-600',
+        stone: active ? 'bg-stone-500 text-white border-stone-500' : 'border-stone-200 dark:border-slate-700 text-stone-500',
+      };
+      return (
+        <button onClick={onClick} className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 text-xs font-semibold transition ${colors[color]}`}>
+          <I size={14} /> {label}
+        </button>
+      );
+    }
+    function MiniBtn({ active, onClick, color, children }) {
+      const colors = {
+        emerald: active ? 'bg-emerald-500 text-white' : 'bg-stone-100 dark:bg-slate-700 text-stone-400',
+        amber: active ? 'bg-amber-500 text-white' : 'bg-stone-100 dark:bg-slate-700 text-stone-400',
+        stone: active ? 'bg-stone-500 text-white' : 'bg-stone-100 dark:bg-slate-700 text-stone-400',
+      };
+      return <button onClick={onClick} className={`w-7 h-7 rounded-lg flex items-center justify-center ${colors[color]}`}>{children}</button>;
+    }
+
+    // ===== Weekly View =====
+    function WeeklyView({ data, isDark, selectedDate, setSelectedDate, setView, getLog }) {
+      const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
+      const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
+      const borderClr = isDark ? 'border-slate-600' : 'border-stone-300';
+      const headBg = isDark ? 'bg-slate-900' : 'bg-purple-50';
+      const subHeadBg = isDark ? 'bg-slate-800' : 'bg-purple-100/50';
+      const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(selectedDate)));
+      const days = useMemo(() => {
+        const arr = [];
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(weekStart);
+          d.setDate(d.getDate() + i);
+          arr.push(d);
+        }
+        return arr;
+      }, [weekStart]);
+      const weekLabel = `${weekStart.getDate()} ${AR_MONTHS[weekStart.getMonth()]} – ${days[6].getDate()} ${AR_MONTHS[days[6].getMonth()]}`;
+      const weekStartPagesBefore = pagesMemorizedBy(data.plan, dateKeyOf(new Date(weekStart.getTime() - 86400000)));
+      const weekStartPage = data.plan.start_page + weekStartPagesBefore;
+      const weekSurah = surahForPage(Math.floor(weekStartPage));
+      const activeDaysThisWeek = days.filter((d) => !data.plan.rest_days.includes(d.getDay())).length;
+      const weekPagesTarget = activeDaysThisWeek * data.plan.daily_pages;
+      const cellSymbol = (status, fallback = '—') => {
+        if (status === 'completed') return <span className="text-emerald-600 dark:text-emerald-400 text-base font-bold">☑</span>;
+        if (status === 'partial') return <span className="text-amber-500 text-base font-bold">◐</span>;
+        if (status === 'not_completed') return <span className="text-red-500 text-base font-bold">☒</span>;
+        return <span className={subtle}>{fallback}</span>;
+      };
+      let weekTotal = 0, weekDone = 0, weekMinutes = 0, weekPagesDone = 0;
+      days.forEach((d) => {
+        const k = dateKeyOf(d);
+        const log = getLog(k);
+        const isFar = data.settings.far_review.active_days.includes(d.getDay());
+        const isRest = data.plan.rest_days.includes(d.getDay());
+        const expected = FORTRESSES.filter((f) => {
+          if (f.key === 'far_review') return isFar;
+          if ((f.key === 'new_memorization' || f.key === 'near_review') && isRest) return false;
+          return true;
+        });
+        weekTotal += expected.length;
+        expected.forEach((f) => {
+          const fl = log.fortresses[f.key];
+          if (fl?.status === 'completed') weekDone++;
+          weekMinutes += Number(fl?.actual_minutes) || 0;
+        });
+        if (!isRest && log.fortresses.new_memorization?.status === 'completed') weekPagesDone += data.plan.daily_pages;
+      });
+      const consistency = weekTotal > 0 ? Math.round((weekDone / weekTotal) * 100) : 0;
+      const halfHezb = data.plan.daily_pages === 0.5 ? 'جزئين' : 'حزب';
+
+      return (
+        <div className="space-y-4">
+          <div className={`flex items-center justify-between rounded-xl border ${cardBg} px-3 py-2`}>
+            <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); }} className="p-2"><ChevronRight size={18} /></button>
+            <p className="font-semibold text-sm">{weekLabel}</p>
+            <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }} className="p-2"><ChevronLeft size={18} /></button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className={`rounded-xl border ${cardBg} p-3 text-center`}>
+              <p className="text-lg font-bold">{consistency}%</p>
+              <p className={`text-[10px] ${subtle}`}>الالتزام</p>
+            </div>
+            <div className={`rounded-xl border ${cardBg} p-3 text-center`}>
+              <p className="text-lg font-bold">{weekPagesDone} / {weekPagesTarget}</p>
+              <p className={`text-[10px] ${subtle}`}>صفحة محفوظة</p>
+            </div>
+            <div className={`rounded-xl border ${cardBg} p-3 text-center`}>
+              <p className="text-lg font-bold">{weekMinutes}</p>
+              <p className={`text-[10px] ${subtle}`}>دقيقة</p>
+            </div>
+          </div>
+          <div className={`rounded-2xl border ${cardBg} p-2`}>
+            <div className="text-center mb-3">
+              <p className="font-bold text-sm">جدول متابعة حفظ القرآن بطريقة الحصون الخمسة</p>
+              <p className={`text-xs ${subtle}`}>سورة {weekSurah.name} — {weekPagesTarget} صفحات هذا الأسبوع</p>
+              <p className={`text-[10px] mt-1 sm:hidden ${subtle}`}>← اسحب الجدول أفقياً لرؤية كامل الأعمدة</p>
+            </div>
+            <div className="overflow-x-auto -mx-2 px-2">
+              <table className="w-full text-[11px] border-collapse" style={{ minWidth: 760 }}>
+                <thead>
+                  <tr className={headBg}>
+                    <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2} style={{ width: 70 }}>اليوم / التاريخ</th>
+                    <th className={`p-1.5 border ${borderClr} text-center`} colSpan={2}>الحصن الأول</th>
+                    <th className={`p-1.5 border ${borderClr} text-center`} colSpan={3}>الحصن الثاني</th>
+                    <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2}>الحصن الثالث</th>
+                    <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2}>الحصن الرابع</th>
+                    <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2}>الحصن الخامس</th>
+                  </tr>
+                  <tr className={subHeadBg}>
+                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>القراءة المستمرة<br /><span className={`text-[9px] ${subtle}`}>({halfHezb} يومياً)</span></th>
+                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>الاستماع المنهجي<br /><span className={`text-[9px] ${subtle}`}>(حزب يومياً)</span></th>
+                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>إسبوعي ({weekPagesTarget} صفحات)</span></th>
+                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>ليلي (15د+15د)</span></th>
+                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>قبلي (15د قبل الحفظ)</span></th>
+                  </tr>
+                  <tr className={subHeadBg}>
+                    <th className={`p-1.5 border ${borderClr}`}></th>
+                    <th className={`p-1.5 border ${borderClr}`}></th>
+                    <th className={`p-1.5 border ${borderClr}`}></th>
+                    <th className={`p-1.5 border ${borderClr}`}></th>
+                    <th className={`p-1.5 border ${borderClr}`}></th>
+                    <th className={`p-1.5 border ${borderClr}`}></th>
+                    <th className={`p-1.5 border ${borderClr} text-center font-normal text-[10px]`}>الحفظ الجديد</th>
+                    <th className={`p-1.5 border ${borderClr} text-center font-normal text-[10px]`}>مراجعة القريب<br /><span className={`text-[9px] ${subtle}`}>({data.settings.near_review_pages} صفحة)</span></th>
+                    <th className={`p-1.5 border ${borderClr} text-center font-normal text-[10px]`}>مراجعة البعيد<br /><span className={`text-[9px] ${subtle}`}>(حد {data.settings.far_review.page_cap} ص)</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {days.map((d) => {
+                    const k = dateKeyOf(d);
+                    const log = getLog(k);
+                    const isFar = data.settings.far_review.active_days.includes(d.getDay());
+                    const isRest = data.plan.rest_days.includes(d.getDay());
+                    const isToday = k === todayKey();
+                    const dayMemo = pagesForDate(data.plan, k);
+                    const nearR = nearReviewRange(data.plan, k, data.settings.near_review_pages);
+                    const farR = isFar ? farReviewRange(data.plan, k, data.settings.near_review_pages, data.settings.far_review.page_cap) : null;
+                    return (
+                      <tr key={k} className={`${isToday ? (isDark ? 'bg-emerald-900/20' : 'bg-emerald-50') : ''} cursor-pointer hover:opacity-80`} onClick={() => { setSelectedDate(k); setView('day'); }}>
+                        <td className={`p-1.5 border ${borderClr} text-center font-bold`}>
+                          {AR_DAYS[d.getDay()]}
+                          <div className={`text-[9px] font-normal ${subtle}`}>{d.getDate()}/{d.getMonth()+1}</div>
+                        </td>
+                        <td className={`p-1.5 border ${borderClr} text-center`}>
+                          <div className="text-[9px] mb-0.5 text-stone-400">{halfHezb}</div>
+                          {cellSymbol(log.fortresses.reading_continuous?.status)}
+                        </td>
+                        <td className={`p-1.5 border ${borderClr} text-center`}>
+                          <div className="text-[9px] mb-0.5 text-stone-400">حزب</div>
+                          {cellSymbol(log.fortresses.listening_methodical?.status)}
+                        </td>
+                        <td className={`p-1.5 border ${borderClr} text-center`}>
+                          <div className="text-[9px] mb-0.5 text-stone-400">{weekPagesTarget} ص</div>
+                          {cellSymbol(log.subtasks.preparation_weekly)}
+                        </td>
+                        <td className={`p-1.5 border ${borderClr} text-center`}>{cellSymbol(log.subtasks.preparation_nightly)}</td>
+                        <td className={`p-1.5 border ${borderClr} text-center`}>{cellSymbol(log.subtasks.preparation_pre_session)}</td>
+                        <td className={`p-1.5 border ${borderClr} text-center`}>
+                          {isRest ? <span className={`text-[9px] ${subtle}`}>راحة</span> : (
+                            <>
+                              {dayMemo && <div className="text-[9px] mb-0.5 text-stone-400">ص {dayMemo.from}{dayMemo.from !== dayMemo.to ? `-${dayMemo.to}` : ''}</div>}
+                              {cellSymbol(log.fortresses.new_memorization?.status)}
+                            </>
+                          )}
+                        </td>
+                        <td className={`p-1.5 border ${borderClr} text-center`}>
+                          {isRest ? <span className={subtle}>—</span> : (
+                            <>
+                              {nearR && <div className="text-[9px] mb-0.5 text-stone-400">ص {nearR.from}-{nearR.to}</div>}
+                              {cellSymbol(log.fortresses.near_review?.status)}
+                            </>
+                          )}
+                        </td>
+                        <td className={`p-1.5 border ${borderClr} text-center`}>
+                          {!isFar ? <span className={subtle}>—</span> : (
+                            <>
+                              {farR && <div className="text-[9px] mb-0.5 text-stone-400">ص {farR.from}-{farR.to}</div>}
+                              {cellSymbol(log.fortresses.far_review?.status)}
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className={`text-[10px] mt-3 text-center ${subtle}`}>
+              لتعبئة الجدول: اضغط على أي يوم للتعديل · ☑ تم · ◐ جزئي · ☒ لم يتم
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ===== Calendar View =====
+    function CalendarView({ data, isDark, onSelect }) {
+      const [month, setMonth] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
+      const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
+      const daysInMonth = new Date(month.y, month.m + 1, 0).getDate();
+      const firstDay = new Date(month.y, month.m, 1).getDay();
+      const monthName = AR_MONTHS[month.m];
+      const cells = [];
+      for (let i = 0; i < firstDay; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+      const dayState = (d) => {
+        const k = `${month.y}-${String(month.m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const log = data.logs[k];
+        if (!log) return 'none';
+        const dt = new Date(k);
+        const isFar = data.settings.far_review.active_days.includes(dt.getDay());
+        const isRest = data.plan.rest_days.includes(dt.getDay());
+        const expected = FORTRESSES.filter((f) => {
+          if (f.key === 'far_review') return isFar;
+          if ((f.key === 'new_memorization' || f.key === 'near_review') && isRest) return false;
+          return true;
+        });
+        const completed = expected.filter((f) => log.fortresses[f.key]?.status === 'completed').length;
+        if (expected.length > 0 && completed === expected.length) return 'full';
+        if (completed > 0) return 'partial';
+        return 'none';
+      };
+      return (
+        <div className={`rounded-2xl border ${cardBg} p-4`}>
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={() => setMonth((m) => m.m === 11 ? { y: m.y + 1, m: 0 } : { y: m.y, m: m.m + 1 })} className="p-1.5"><ChevronRight size={18} /></button>
+            <p className="font-bold">{monthName} {month.y}</p>
+            <button onClick={() => setMonth((m) => m.m === 0 ? { y: m.y - 1, m: 11 } : { y: m.y, m: m.m - 1 })} className="p-1.5"><ChevronLeft size={18} /></button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-stone-400 mb-2">
+            {['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'].map((d) => <div key={d}>{d}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {cells.map((d, i) => {
+              if (!d) return <div key={i} />;
+              const state = dayState(d);
+              const k = `${month.y}-${String(month.m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+              const bg = state === 'full' ? 'bg-emerald-500 text-white' : state === 'partial' ? 'bg-amber-400 text-white' : isDark ? 'bg-slate-700' : 'bg-stone-100';
+              return <button key={i} onClick={() => onSelect(k)} className={`aspect-square rounded-lg text-xs font-semibold ${bg}`}>{d}</button>;
+            })}
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-4 text-[10px]">
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-emerald-500" /> مكتمل</div>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-amber-400" /> جزئي</div>
+            <div className="flex items-center gap-1"><div className={`w-3 h-3 rounded ${isDark ? 'bg-slate-700' : 'bg-stone-200'}`} /> لا نشاط</div>
+          </div>
+        </div>
+      );
+    }
+
+    // ===== Mushaf =====
+    function Mushaf({ data, isDark }) {
+      const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
+      const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
+      const inputBg = isDark ? 'bg-slate-900 border-slate-700' : 'bg-stone-50 border-stone-200';
+      const [pageNum, setPageNum] = useState(() => {
+        const todayMemo = pagesForDate(data.plan, todayKey());
+        return todayMemo ? Math.floor(todayMemo.from) : 1;
+      });
+      const [verses, setVerses] = useState([]);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState(null);
+      const [fontSize, setFontSize] = useState(26);
+      const [controlsOpen, setControlsOpen] = useState(false);
+
+      useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        setError(null);
+        fetch(`https://api.alquran.cloud/v1/page/${pageNum}/quran-uthmani`)
+          .then((r) => { if (!r.ok) throw new Error('فشل تحميل الصفحة (' + r.status + ')'); return r.json(); })
+          .then((json) => {
+            if (cancelled) return;
+            if (json.code !== 200 || !json.data?.ayahs) throw new Error('استجابة غير متوقعة من الخادم');
+            const normalized = json.data.ayahs.map((a) => ({
+              id: a.number, chapter_id: a.surah.number, verse_number: a.numberInSurah, text_uthmani: a.text,
+            }));
+            setVerses(normalized);
+            setLoading(false);
+          })
+          .catch((err) => { if (cancelled) return; setError(err.message || 'فشل الاتصال'); setLoading(false); });
+        return () => { cancelled = true; };
+      }, [pageNum]);
+
+      const currentSurah = surahForPage(pageNum);
+      const todayMemo = pagesForDate(data.plan, todayKey());
+      const jumpToToday = () => { if (todayMemo) setPageNum(Math.floor(todayMemo.from)); };
+      const versesBySurah = useMemo(() => {
+        const groups = {};
+        verses.forEach((v) => {
+          const sid = v.chapter_id;
+          if (!groups[sid]) groups[sid] = [];
+          groups[sid].push(v);
+        });
+        return groups;
+      }, [verses]);
+      const toArabicNum = (n) => String(n).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[d]);
+
+      return (
+        <div className="space-y-2">
+          <div className={`rounded-xl border ${cardBg} p-2 flex items-center gap-2`}>
+            <button onClick={() => setPageNum((p) => Math.min(604, p + 1))} disabled={pageNum >= 604} className={`p-1.5 rounded-lg ${isDark ? 'bg-slate-700' : 'bg-stone-100'} disabled:opacity-30 shrink-0`}>
+              <ChevronRight size={16} />
+            </button>
+            <div className="flex-1 min-w-0 text-center">
+              <p className="font-bold text-sm truncate">{currentSurah.name}</p>
+              <div className="flex items-center justify-center gap-1 text-[10px]">
+                <span className={subtle}>صفحة</span>
+                <input type="number" min="1" max="604" value={pageNum} onChange={(e) => { const v = Number(e.target.value); if (v >= 1 && v <= 604) setPageNum(v); }} className={`w-12 px-1 py-0.5 rounded border text-center font-bold ${inputBg}`} />
+                <span className={subtle}>/ 604</span>
+              </div>
+            </div>
+            <button onClick={() => setPageNum((p) => Math.max(1, p - 1))} disabled={pageNum <= 1} className={`p-1.5 rounded-lg ${isDark ? 'bg-slate-700' : 'bg-stone-100'} disabled:opacity-30 shrink-0`}>
+              <ChevronLeft size={16} />
+            </button>
+            <button onClick={() => setControlsOpen((v) => !v)} className={`p-1.5 rounded-lg ${isDark ? 'bg-slate-700' : 'bg-stone-100'} shrink-0 text-xs font-bold`}>
+              Aa
+            </button>
+          </div>
+          {controlsOpen && (
+            <div className={`rounded-xl border ${cardBg} p-2 flex items-center justify-between gap-2`}>
+              <div className="flex items-center gap-1">
+                <span className={`text-[10px] ${subtle}`}>حجم الخط</span>
+                <button onClick={() => setFontSize((s) => Math.max(16, s - 2))} className={`w-7 h-7 rounded-lg ${isDark ? 'bg-slate-700' : 'bg-stone-100'} text-sm font-bold`}>−</button>
+                <span className="text-xs w-6 text-center">{fontSize}</span>
+                <button onClick={() => setFontSize((s) => Math.min(44, s + 2))} className={`w-7 h-7 rounded-lg ${isDark ? 'bg-slate-700' : 'bg-stone-100'} text-sm font-bold`}>+</button>
+              </div>
+              {todayMemo && (
+                <button onClick={jumpToToday} className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white font-semibold text-[11px] flex items-center gap-1">
+                  <BookOpen size={12} />
+                  حفظ اليوم ({todayMemo.from}{todayMemo.from !== todayMemo.to ? `-${todayMemo.to}` : ''})
+                </button>
+              )}
+            </div>
+          )}
+          <div className={`rounded-2xl border ${cardBg} p-4 sm:p-6`} style={{ minHeight: 'calc(100vh - 200px)' }}>
+            {loading && (
+              <div className="flex flex-col items-center justify-center py-16 gap-2">
+                <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                <p className={`text-xs ${subtle}`}>جاري تحميل الصفحة...</p>
+              </div>
+            )}
+            {error && (
+              <div className="text-center py-12">
+                <p className="text-red-500 text-sm">{error}</p>
+                <p className={`text-xs mt-2 ${subtle}`}>تأكد من اتصالك بالإنترنت</p>
+                <button onClick={() => setPageNum((p) => p)} className="mt-3 px-4 py-2 rounded-lg bg-emerald-500 text-white text-sm font-semibold">إعادة المحاولة</button>
+              </div>
+            )}
+            {!loading && !error && verses.length > 0 && (
+              <div className="space-y-5">
+                {Object.entries(versesBySurah).map(([sid, sVerses]) => {
+                  const surah = SURAHS.find((s) => s.n === Number(sid));
+                  const startsWithFirstVerse = sVerses[0]?.verse_number === 1;
+                  return (
+                    <div key={sid}>
+                      {startsWithFirstVerse && surah && (
+                        <div className={`text-center mb-4 pb-3 border-b-2 ${isDark ? 'border-emerald-900' : 'border-emerald-200'}`}>
+                          <p className="font-bold text-lg text-emerald-600 dark:text-emerald-400">سورة {surah.name}</p>
+                          {surah.n !== 1 && surah.n !== 9 && (
+                            <p className="mt-2 quran-text" style={{ fontSize: `${fontSize + 2}px` }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</p>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-justify quran-text" style={{ fontSize: `${fontSize}px`, lineHeight: 2.3 }}>
+                        {sVerses.map((v) => (
+                          <span key={v.id}>
+                            {v.text_uthmani}
+                            <span className="inline-block mx-1 text-emerald-600 dark:text-emerald-400" style={{ fontSize: `${fontSize * 0.65}px` }}>
+                              ﴿{toArabicNum(v.verse_number)}﴾
+                            </span>
+                            {' '}
+                          </span>
+                        ))}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ===== Plan =====
+    function Plan({ data, update, isDark, stats }) {
+      const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
+      const inputBg = isDark ? 'bg-slate-900 border-slate-700' : 'bg-stone-50 border-stone-200';
+      const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
+      const setPlan = (k, v) => update((d) => { d.plan = { ...d.plan, [k]: v }; return d; });
+      const toggleRest = (idx) => update((d) => {
+        const cur = d.plan.rest_days || [];
+        d.plan = { ...d.plan, rest_days: cur.includes(idx) ? cur.filter((i) => i !== idx) : [...cur, idx] };
+        return d;
+      });
+      const startSurah = surahForPage(data.plan.start_page);
+      const endSurah = surahForPage(data.plan.end_page);
+      const finishStr = arabicDate(dateKeyOf(stats.finishDate));
+
+      return (
+        <div className="space-y-5">
+          <h2 className="text-xl font-bold">خطة الحفظ</h2>
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <h3 className="font-bold mb-3">ملخص التقدم</h3>
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <div className={`p-3 rounded-xl ${isDark ? 'bg-slate-900' : 'bg-stone-50'}`}>
+                <p className={`text-xs ${subtle}`}>المحفوظ</p>
+                <p className="text-xl font-bold">{Math.floor(stats.memorized)} / {stats.totalPlanPages}</p>
+              </div>
+              <div className={`p-3 rounded-xl ${isDark ? 'bg-slate-900' : 'bg-stone-50'}`}>
+                <p className={`text-xs ${subtle}`}>نسبة الإنجاز</p>
+                <p className="text-xl font-bold text-emerald-600">{stats.planProgress}%</p>
+              </div>
+              <div className={`p-3 rounded-xl ${isDark ? 'bg-slate-900' : 'bg-stone-50'}`}>
+                <p className={`text-xs ${subtle}`}>أيام الحفظ أسبوعياً</p>
+                <p className="text-xl font-bold">{stats.activeDaysPerWeek}</p>
+              </div>
+              <div className={`p-3 rounded-xl ${isDark ? 'bg-slate-900' : 'bg-stone-50'}`}>
+                <p className={`text-xs ${subtle}`}>الانتهاء المتوقع</p>
+                <p className="text-sm font-bold">{finishStr}</p>
+              </div>
+            </div>
+            <div className={`mt-4 h-2 rounded-full ${isDark ? 'bg-slate-700' : 'bg-stone-100'} overflow-hidden`}>
+              <div className="h-full bg-gradient-to-l from-emerald-500 to-teal-600" style={{ width: `${stats.planProgress}%` }} />
+            </div>
+          </div>
+          <div className={`rounded-2xl border ${cardBg} p-5 space-y-4`}>
+            <div>
+              <label className="text-sm font-semibold mb-2 block">المقدار اليومي</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setPlan('daily_pages', 0.5)} className={`py-3 rounded-xl border-2 font-semibold ${data.plan.daily_pages === 0.5 ? 'bg-emerald-500 text-white border-emerald-500' : inputBg}`}>نصف صفحة</button>
+                <button onClick={() => setPlan('daily_pages', 1)} className={`py-3 rounded-xl border-2 font-semibold ${data.plan.daily_pages === 1 ? 'bg-emerald-500 text-white border-emerald-500' : inputBg}`}>صفحة كاملة</button>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-semibold mb-2 block">من صفحة (1 - 604)</label>
+              <input type="number" min="1" max="604" value={data.plan.start_page} onChange={(e) => setPlan('start_page', Math.max(1, Math.min(604, Number(e.target.value))))} className={`w-full px-3 py-2.5 rounded-xl border ${inputBg} text-center text-lg font-bold`} />
+              <p className={`text-xs mt-1 ${subtle}`}>السورة: {startSurah.name}</p>
+            </div>
+            <div>
+              <label className="text-sm font-semibold mb-2 block">إلى صفحة (1 - 604)</label>
+              <input type="number" min="1" max="604" value={data.plan.end_page} onChange={(e) => setPlan('end_page', Math.max(1, Math.min(604, Number(e.target.value))))} className={`w-full px-3 py-2.5 rounded-xl border ${inputBg} text-center text-lg font-bold`} />
+              <p className={`text-xs mt-1 ${subtle}`}>السورة: {endSurah.name}</p>
+            </div>
+            <div>
+              <label className="text-sm font-semibold mb-2 block">تاريخ البداية</label>
+              <input type="date" value={data.plan.start_date} onChange={(e) => setPlan('start_date', e.target.value)} className={`w-full px-3 py-2.5 rounded-xl border ${inputBg}`} />
+            </div>
+            <div>
+              <label className="text-sm font-semibold mb-2 block">أيام الراحة من الحفظ الجديد</label>
+              <p className={`text-xs mb-2 ${subtle}`}>اختر الأيام التي لا تريد فيها حفظاً جديداً (تبقى باقي الحصون كما هي)</p>
+              <div className="grid grid-cols-7 gap-1">
+                {WEEK_DAYS.map((day) => {
+                  const active = data.plan.rest_days.includes(day.idx);
+                  return (
+                    <button key={day.idx} onClick={() => toggleRest(day.idx)} className={`py-2 rounded-lg text-[10px] font-semibold border-2 ${active ? 'bg-amber-500 text-white border-amber-500' : inputBg}`}>
+                      {day.short}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ===== Stats =====
+    function Stats({ data, isDark, stats }) {
+      const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
+      const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
+      return (
+        <div className="space-y-5">
+          <h2 className="text-xl font-bold">الإحصائيات</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`rounded-2xl border ${cardBg} p-4`}>
+              <p className={`text-xs ${subtle}`}>أيام الالتزام الكامل</p>
+              <p className="text-3xl font-bold mt-1">{stats.fullDays}</p>
+              <p className={`text-xs ${subtle}`}>من أصل {stats.daysInMonth} يوم</p>
+            </div>
+            <div className={`rounded-2xl border ${cardBg} p-4`}>
+              <p className={`text-xs ${subtle}`}>الالتزام الشهري</p>
+              <p className="text-3xl font-bold mt-1">{stats.monthlyConsistency}<span className="text-base">%</span></p>
+              <p className={`text-xs ${subtle}`}>هذا الشهر</p>
+            </div>
+          </div>
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <h3 className="font-bold mb-4">الأداء حسب الحصن</h3>
+            <div className="space-y-3">
+              {FORTRESSES.map((f) => {
+                const s = stats.perFortress[f.key];
+                const pct = Math.round((s.completed / stats.daysInMonth) * 100);
+                return (
+                  <div key={f.key}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="font-semibold">{f.name}</span>
+                      <span className={subtle}>{s.completed} يوم — {s.minutes} د</span>
+                    </div>
+                    <div className={`h-2 rounded-full ${isDark ? 'bg-slate-700' : 'bg-stone-100'} overflow-hidden`}>
+                      <div className={`h-full bg-gradient-to-l ${colorClasses[f.color]}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className={`rounded-2xl border ${cardBg} p-4 flex items-start gap-3`}>
+              <Award size={20} className="text-emerald-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold">أقوى حصن</p>
+                <p className={`text-xs ${subtle}`}>{stats.strongest.name} — {stats.perFortress[stats.strongest.key].completed} يوم مكتمل</p>
+              </div>
+            </div>
+            <div className={`rounded-2xl border ${cardBg} p-4 flex items-start gap-3`}>
+              <TrendingUp size={20} className="text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold">يحتاج تركيز أكثر</p>
+                <p className={`text-xs ${subtle}`}>{stats.weakest.name} — {stats.perFortress[stats.weakest.key].completed} يوم مكتمل فقط</p>
+              </div>
+            </div>
+            <div className={`rounded-2xl border ${cardBg} p-4 flex items-start gap-3`}>
+              <Flame size={20} className="text-orange-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold">سلسلة الالتزام الكامل</p>
+                <p className={`text-xs ${subtle}`}>{stats.streak} يوم متتالي بإذن الله</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ===== Settings =====
+    function SettingsPage({ data, update, isDark }) {
+      const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
+      const inputBg = isDark ? 'bg-slate-900 border-slate-700' : 'bg-stone-50 border-stone-200';
+      const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
+      const setTarget = (k, v) => update((d) => { d.settings = { ...d.settings, targets: { ...d.settings.targets, [k]: Number(v) } }; return d; });
+      const toggleFarDay = (idx) => update((d) => {
+        const cur = d.settings.far_review.active_days || [];
+        d.settings = { ...d.settings, far_review: { ...d.settings.far_review, active_days: cur.includes(idx) ? cur.filter((i) => i !== idx) : [...cur, idx] } };
+        return d;
+      });
+
+      return (
+        <div className="space-y-5">
+          <h2 className="text-xl font-bold">الإعدادات</h2>
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold">الوضع الليلي</p>
+                <p className={`text-xs mt-0.5 ${subtle}`}>تفعيل المظهر الداكن</p>
+              </div>
+              <button onClick={() => update((d) => { d.settings = { ...d.settings, dark_mode: !d.settings.dark_mode }; return d; })} className={`relative w-12 h-7 rounded-full transition ${data.settings.dark_mode ? 'bg-emerald-500' : 'bg-stone-300'}`}>
+                <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition ${data.settings.dark_mode ? 'right-1' : 'right-6'}`} />
+              </button>
+            </div>
+          </div>
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <h3 className="font-bold mb-4">إعدادات مراجعة البعيد</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold mb-2 block">أيام تفعيل مراجعة البعيد</label>
+                <div className="grid grid-cols-7 gap-1">
+                  {WEEK_DAYS.map((day) => {
+                    const active = data.settings.far_review.active_days.includes(day.idx);
+                    return (
+                      <button key={day.idx} onClick={() => toggleFarDay(day.idx)} className={`py-2 rounded-lg text-[10px] font-semibold border-2 ${active ? 'bg-indigo-500 text-white border-indigo-500' : inputBg}`}>
+                        {day.short}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-semibold mb-2 block">الحد الأقصى للصفحات يومياً</label>
+                <input type="number" min="1" max="604" value={data.settings.far_review.page_cap} onChange={(e) => update((d) => { d.settings = { ...d.settings, far_review: { ...d.settings.far_review, page_cap: Number(e.target.value) } }; return d; })} className={`w-full px-3 py-2 rounded-xl border ${inputBg} text-center`} />
+              </div>
+            </div>
+          </div>
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <h3 className="font-bold mb-4">إعدادات مراجعة القريب</h3>
+            <div>
+              <label className="text-sm font-semibold mb-2 block">عدد الصفحات قبل الحفظ الجديد</label>
+              <input type="number" min="1" max="100" value={data.settings.near_review_pages} onChange={(e) => update((d) => { d.settings = { ...d.settings, near_review_pages: Number(e.target.value) }; return d; })} className={`w-full px-3 py-2 rounded-xl border ${inputBg} text-center`} />
+            </div>
+          </div>
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <h3 className="font-bold mb-4">المدة المستهدفة لكل حصن (دقيقة)</h3>
+            <div className="space-y-3">
+              {FORTRESSES.map((f) => (
+                <div key={f.key} className="flex items-center justify-between gap-3">
+                  <span className="text-sm">{f.name}</span>
+                  <input type="number" min="0" value={data.settings.targets[f.key] || 0} onChange={(e) => setTarget(f.key, e.target.value)} className={`w-20 px-2 py-1.5 rounded-lg border text-center ${inputBg}`} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <h3 className="font-bold mb-2">النسخ الاحتياطي</h3>
+            <p className={`text-xs mb-4 ${subtle}`}>احفظ بياناتك بشكل دوري في ملف</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = `husun-backup-${todayKey()}.json`;
+                  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+                className="py-3 rounded-xl bg-emerald-500 text-white font-semibold text-sm flex items-center justify-center gap-2"
+              >
+                <Download size={16} /> تصدير
+              </button>
+              <label className="py-3 rounded-xl bg-sky-500 text-white font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer">
+                <Upload size={16} /> استيراد
+                <input type="file" accept="application/json,.json" className="hidden" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (ev) => {
+                    try {
+                      const imported = JSON.parse(ev.target.result);
+                      if (!imported.plan || !imported.settings || !imported.logs) { alert('ملف غير صالح'); return; }
+                      if (confirm('سيتم استبدال جميع البيانات الحالية. هل تريد المتابعة؟')) {
+                        update(() => imported);
+                        alert('تم استيراد البيانات بنجاح');
+                      }
+                    } catch (err) { alert('فشل قراءة الملف: ' + err.message); }
+                  };
+                  reader.readAsText(file); e.target.value = '';
+                }} />
+              </label>
+            </div>
+          </div>
+          <div className={`rounded-2xl border-2 border-red-500/50 ${cardBg} p-5`}>
+            <h3 className="font-bold mb-2 text-red-600 dark:text-red-400">منطقة الخطر</h3>
+            <p className={`text-xs mb-4 ${subtle}`}>الإجراءات التالية لا يمكن التراجع عنها. ننصح بتصدير نسخة احتياطية أولاً.</p>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  if (confirm('هل تريد مسح سجل الإنجاز فقط؟\n(سيتم الاحتفاظ بالخطة والإعدادات)')) {
+                    if (confirm('تأكيد نهائي: سيتم حذف جميع بيانات الإنجاز اليومي. هل أنت متأكد؟')) {
+                      update((d) => { d.logs = {}; return d; });
+                      alert('تم مسح سجل الإنجاز');
+                    }
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl border-2 border-amber-500 text-amber-600 dark:text-amber-400 font-semibold text-sm"
+              >
+                مسح سجل الإنجاز فقط
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm('هل تريد مسح جميع البيانات؟')) {
+                    if (confirm('تأكيد نهائي: لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد تماماً؟')) {
+                      localStorage.removeItem(STORAGE_KEY);
+                      location.reload();
+                    }
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl border-2 border-red-500 text-red-500 font-semibold text-sm"
+              >
+                مسح جميع البيانات (إعادة ضبط المصنع)
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ===== Mount =====
+    const rootEl = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootEl);
+    root.render(<App />);
+    // Hide loading screen as soon as React has rendered
+    requestAnimationFrame(() => {
+      const ls = document.getElementById('loading-screen');
+      if (ls) ls.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
