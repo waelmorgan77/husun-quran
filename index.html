@@ -220,10 +220,10 @@
         if (raw) {
           const parsed = JSON.parse(raw);
           if (!parsed.settings.amounts) {
-            parsed.settings.amounts = {
-              reading_continuous: 'two_juz',
-              listening_methodical: 'hezb',
-            };
+            parsed.settings.amounts = { reading_continuous: 'two_juz', listening_methodical: 'hezb' };
+          }
+          if (parsed.settings.preparation_enabled === undefined) {
+            parsed.settings.preparation_enabled = true;
           }
           return parsed;
         }
@@ -236,6 +236,7 @@
           far_review: { active_days: [6], page_cap: 40 },
           near_review_pages: 20,
           amounts: { reading_continuous: 'two_juz', listening_methodical: 'hezb' },
+          preparation_enabled: true,
         },
         logs: {},
       };
@@ -344,6 +345,12 @@
         });
       };
 
+      const prepOn = data.settings.preparation_enabled !== false;
+      const activeFortresses = useMemo(
+        () => FORTRESSES.filter((f) => prepOn || f.key !== 'preparation'),
+        [prepOn]
+      );
+
       const stats = useMemo(() => {
         const now = new Date();
         const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -358,12 +365,12 @@
           const dt = new Date(k);
           const isFar = data.settings.far_review.active_days.includes(dt.getDay());
           const isRest = data.plan.rest_days.includes(dt.getDay());
-          const expectedFortresses = FORTRESSES.filter((f) => {
+          const expectedFortresses = activeFortresses.filter((f) => {
             if (f.key === 'far_review') return isFar;
             if ((f.key === 'new_memorization' || f.key === 'near_review') && isRest) return false;
             return true;
           });
-          FORTRESSES.forEach((f) => {
+          activeFortresses.forEach((f) => {
             const fl = log.fortresses[f.key];
             if (fl) {
               if (fl.status === 'completed') perFortress[f.key].completed++;
@@ -383,7 +390,7 @@
           if (!log) break;
           const isFar = data.settings.far_review.active_days.includes(d.getDay());
           const isRest = data.plan.rest_days.includes(d.getDay());
-          const expected = FORTRESSES.filter((f) => {
+          const expected = activeFortresses.filter((f) => {
             if (f.key === 'far_review') return isFar;
             if ((f.key === 'new_memorization' || f.key === 'near_review') && isRest) return false;
             return true;
@@ -406,7 +413,7 @@
           const log = data.logs[k];
           const isFar = data.settings.far_review.active_days.includes(dt.getDay());
           const isRest = data.plan.rest_days.includes(dt.getDay());
-          const expected = FORTRESSES.filter((f) => {
+          const expected = activeFortresses.filter((f) => {
             if (f.key === 'far_review') return isFar;
             if ((f.key === 'new_memorization' || f.key === 'near_review') && isRest) return false;
             return true;
@@ -415,7 +422,7 @@
         }
         const weeklyConsistency = Math.round((weekFull / 7) * 100);
 
-        const sorted = [...FORTRESSES].sort((a, b) => perFortress[b.key].completed - perFortress[a.key].completed);
+        const sorted = [...activeFortresses].sort((a, b) => perFortress[b.key].completed - perFortress[a.key].completed);
         const strongest = sorted[0];
         const weakest = sorted[sorted.length - 1];
 
@@ -433,13 +440,13 @@
         }
 
         return { perFortress, fullDays, daysInMonth, monthlyConsistency, weeklyConsistency, streak, strongest, weakest, memorized, totalPlanPages, planProgress, activeDaysPerWeek, finishDate };
-      }, [data.logs, data.plan, data.settings.far_review.active_days]);
+      }, [data.logs, data.plan, data.settings.far_review.active_days, activeFortresses]);
 
       const todayLog = getLog(todayKey());
       const todayDate = new Date();
       const todayIsFar = data.settings.far_review.active_days.includes(todayDate.getDay());
       const todayIsRest = data.plan.rest_days.includes(todayDate.getDay());
-      const todayExpected = FORTRESSES.filter((f) => {
+      const todayExpected = activeFortresses.filter((f) => {
         if (f.key === 'far_review') return todayIsFar;
         if ((f.key === 'new_memorization' || f.key === 'near_review') && todayIsRest) return false;
         return true;
@@ -473,12 +480,12 @@
             </header>
 
             <main className="max-w-5xl mx-auto px-4 py-5 pb-32">
-              {page === 'dashboard' && <Dashboard data={data} isDark={isDark} todayLog={todayLog} todayProgress={todayProgress} todayCompleted={todayCompleted} todayExpected={todayExpected} stats={stats} setPage={setPage} setSelectedDate={setSelectedDate} todayIsRest={todayIsRest} />}
-              {page === 'log' && <DailyLog data={data} isDark={isDark} selectedDate={selectedDate} setSelectedDate={setSelectedDate} getLog={getLog} setFortressStatus={setFortressStatus} setFortressMinutes={setFortressMinutes} setFortressNotes={setFortressNotes} setSubtaskStatus={setSubtaskStatus} resetDay={resetDay} />}
+              {page === 'dashboard' && <Dashboard data={data} isDark={isDark} todayLog={todayLog} todayProgress={todayProgress} todayCompleted={todayCompleted} todayExpected={todayExpected} stats={stats} setPage={setPage} setSelectedDate={setSelectedDate} todayIsRest={todayIsRest} activeFortresses={activeFortresses} />}
+              {page === 'log' && <DailyLog data={data} isDark={isDark} selectedDate={selectedDate} setSelectedDate={setSelectedDate} getLog={getLog} setFortressStatus={setFortressStatus} setFortressMinutes={setFortressMinutes} setFortressNotes={setFortressNotes} setSubtaskStatus={setSubtaskStatus} resetDay={resetDay} activeFortresses={activeFortresses} />}
               {page === 'mushaf' && <Mushaf data={data} isDark={isDark} />}
               {page === 'plan' && <Plan data={data} update={update} isDark={isDark} stats={stats} />}
-              {page === 'stats' && <Stats data={data} isDark={isDark} stats={stats} />}
-              {page === 'settings' && <SettingsPage data={data} update={update} isDark={isDark} />}
+              {page === 'stats' && <Stats data={data} isDark={isDark} stats={stats} activeFortresses={activeFortresses} />}
+              {page === 'settings' && <SettingsPage data={data} update={update} isDark={isDark} activeFortresses={activeFortresses} />}
             </main>
 
             <nav className={`fixed bottom-0 inset-x-0 ${isDark ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-stone-200'} border-t backdrop-blur`} style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}>
@@ -508,7 +515,7 @@
     }
 
     // ===== Dashboard =====
-    function Dashboard({ data, isDark, todayLog, todayProgress, todayCompleted, todayExpected, stats, setPage, setSelectedDate, todayIsRest }) {
+    function Dashboard({ data, isDark, todayLog, todayProgress, todayCompleted, todayExpected, stats, setPage, setSelectedDate, todayIsRest, activeFortresses }) {
       const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
       const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
       const todayMemo = pagesForDate(data.plan, todayKey());
@@ -562,7 +569,7 @@
           <div>
             <h3 className="font-bold mb-3">حصون اليوم</h3>
             <div className="grid sm:grid-cols-2 gap-3">
-              {FORTRESSES.map((f) => {
+              {activeFortresses.map((f) => {
                 const fl = todayLog.fortresses[f.key];
                 const status = fl?.status || 'not_completed';
                 const isExpected = todayExpected.includes(f);
@@ -640,7 +647,7 @@
     }
 
     // ===== Daily Log =====
-    function DailyLog({ data, isDark, selectedDate, setSelectedDate, getLog, setFortressStatus, setFortressMinutes, setFortressNotes, setSubtaskStatus, resetDay }) {
+    function DailyLog({ data, isDark, selectedDate, setSelectedDate, getLog, setFortressStatus, setFortressMinutes, setFortressNotes, setSubtaskStatus, resetDay, activeFortresses }) {
       const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
       const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
       const log = getLog(selectedDate);
@@ -677,8 +684,8 @@
             </div>
           </div>
 
-          {view === 'calendar' && <CalendarView data={data} isDark={isDark} onSelect={(d) => { setSelectedDate(d); setView('day'); }} />}
-          {view === 'week' && <WeeklyView data={data} isDark={isDark} selectedDate={selectedDate} setSelectedDate={setSelectedDate} setView={setView} getLog={getLog} />}
+          {view === 'calendar' && <CalendarView data={data} isDark={isDark} onSelect={(d) => { setSelectedDate(d); setView('day'); }} activeFortresses={activeFortresses} />}
+          {view === 'week' && <WeeklyView data={data} isDark={isDark} selectedDate={selectedDate} setSelectedDate={setSelectedDate} setView={setView} getLog={getLog} activeFortresses={activeFortresses} />}
           {view === 'day' && (
             <>
               <div className={`flex items-center justify-between rounded-xl border ${cardBg} px-3 py-2`}>
@@ -708,7 +715,7 @@
               )}
 
               <div className="space-y-3">
-                {FORTRESSES.map((f) => {
+                {activeFortresses.map((f) => {
                   const fl = log.fortresses[f.key] || { status: 'not_completed', actual_minutes: 0, notes: '' };
                   const target = data.settings.targets[f.key] || 0;
                   const detail = fortressDetail(f.key);
@@ -799,12 +806,13 @@
     }
 
     // ===== Weekly View =====
-    function WeeklyView({ data, isDark, selectedDate, setSelectedDate, setView, getLog }) {
+    function WeeklyView({ data, isDark, selectedDate, setSelectedDate, setView, getLog, activeFortresses }) {
       const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
       const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
       const borderClr = isDark ? 'border-slate-600' : 'border-stone-300';
       const headBg = isDark ? 'bg-slate-900' : 'bg-purple-50';
       const subHeadBg = isDark ? 'bg-slate-800' : 'bg-purple-100/50';
+      const prepOn = activeFortresses.some((f) => f.key === 'preparation');
       const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(selectedDate)));
       const days = useMemo(() => {
         const arr = [];
@@ -833,7 +841,7 @@
         const log = getLog(k);
         const isFar = data.settings.far_review.active_days.includes(d.getDay());
         const isRest = data.plan.rest_days.includes(d.getDay());
-        const expected = FORTRESSES.filter((f) => {
+        const expected = activeFortresses.filter((f) => {
           if (f.key === 'far_review') return isFar;
           if ((f.key === 'new_memorization' || f.key === 'near_review') && isRest) return false;
           return true;
@@ -878,30 +886,34 @@
               <p className={`text-[10px] mt-1 sm:hidden ${subtle}`}>← اسحب الجدول أفقياً لرؤية كامل الأعمدة</p>
             </div>
             <div className="overflow-x-auto -mx-2 px-2">
-              <table className="w-full text-[11px] border-collapse" style={{ minWidth: 760 }}>
+              <table className="w-full text-[11px] border-collapse" style={{ minWidth: prepOn ? 760 : 560 }}>
                 <thead>
                   <tr className={headBg}>
                     <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2} style={{ width: 70 }}>اليوم / التاريخ</th>
                     <th className={`p-1.5 border ${borderClr} text-center`} colSpan={2}>الحصن الأول</th>
-                    <th className={`p-1.5 border ${borderClr} text-center`} colSpan={3}>الحصن الثاني</th>
-                    <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2}>الحصن الثالث</th>
-                    <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2}>الحصن الرابع</th>
-                    <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2}>الحصن الخامس</th>
+                    {prepOn && <th className={`p-1.5 border ${borderClr} text-center`} colSpan={3}>الحصن الثاني</th>}
+                    <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2}>{prepOn ? 'الحصن الثالث' : 'الحصن الثاني'}</th>
+                    <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2}>{prepOn ? 'الحصن الرابع' : 'الحصن الثالث'}</th>
+                    <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2}>{prepOn ? 'الحصن الخامس' : 'الحصن الرابع'}</th>
                   </tr>
                   <tr className={subHeadBg}>
                     <th className={`p-1.5 border ${borderClr} text-center font-normal`}>القراءة المستمرة<br /><span className={`text-[9px] ${subtle}`}>({readingLabel} يومياً)</span></th>
                     <th className={`p-1.5 border ${borderClr} text-center font-normal`}>الاستماع المنهجي<br /><span className={`text-[9px] ${subtle}`}>({listeningLabel} يومياً)</span></th>
-                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>إسبوعي ({weekPagesTarget} صفحات)</span></th>
-                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>ليلي (15د+15د)</span></th>
-                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>قبلي (15د قبل الحفظ)</span></th>
+                    {prepOn && <>
+                      <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>إسبوعي ({weekPagesTarget} صفحات)</span></th>
+                      <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>ليلي (15د+15د)</span></th>
+                      <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>قبلي (15د قبل الحفظ)</span></th>
+                    </>}
                   </tr>
                   <tr className={subHeadBg}>
                     <th className={`p-1.5 border ${borderClr}`}></th>
                     <th className={`p-1.5 border ${borderClr}`}></th>
                     <th className={`p-1.5 border ${borderClr}`}></th>
-                    <th className={`p-1.5 border ${borderClr}`}></th>
-                    <th className={`p-1.5 border ${borderClr}`}></th>
-                    <th className={`p-1.5 border ${borderClr}`}></th>
+                    {prepOn && <>
+                      <th className={`p-1.5 border ${borderClr}`}></th>
+                      <th className={`p-1.5 border ${borderClr}`}></th>
+                      <th className={`p-1.5 border ${borderClr}`}></th>
+                    </>}
                     <th className={`p-1.5 border ${borderClr} text-center font-normal text-[10px]`}>الحفظ الجديد</th>
                     <th className={`p-1.5 border ${borderClr} text-center font-normal text-[10px]`}>مراجعة القريب<br /><span className={`text-[9px] ${subtle}`}>({data.settings.near_review_pages} صفحة)</span></th>
                     <th className={`p-1.5 border ${borderClr} text-center font-normal text-[10px]`}>مراجعة البعيد<br /><span className={`text-[9px] ${subtle}`}>(حد {data.settings.far_review.page_cap} ص)</span></th>
@@ -931,12 +943,14 @@
                           <div className="text-[9px] mb-0.5 text-stone-400">{listeningLabel}</div>
                           {cellSymbol(log.fortresses.listening_methodical?.status)}
                         </td>
-                        <td className={`p-1.5 border ${borderClr} text-center`}>
-                          <div className="text-[9px] mb-0.5 text-stone-400">{weekPagesTarget} ص</div>
-                          {cellSymbol(log.subtasks.preparation_weekly)}
-                        </td>
-                        <td className={`p-1.5 border ${borderClr} text-center`}>{cellSymbol(log.subtasks.preparation_nightly)}</td>
-                        <td className={`p-1.5 border ${borderClr} text-center`}>{cellSymbol(log.subtasks.preparation_pre_session)}</td>
+                        {prepOn && <>
+                          <td className={`p-1.5 border ${borderClr} text-center`}>
+                            <div className="text-[9px] mb-0.5 text-stone-400">{weekPagesTarget} ص</div>
+                            {cellSymbol(log.subtasks.preparation_weekly)}
+                          </td>
+                          <td className={`p-1.5 border ${borderClr} text-center`}>{cellSymbol(log.subtasks.preparation_nightly)}</td>
+                          <td className={`p-1.5 border ${borderClr} text-center`}>{cellSymbol(log.subtasks.preparation_pre_session)}</td>
+                        </>}
                         <td className={`p-1.5 border ${borderClr} text-center`}>
                           {isRest ? <span className={`text-[9px] ${subtle}`}>راحة</span> : (
                             <>
@@ -976,7 +990,7 @@
     }
 
     // ===== Calendar View =====
-    function CalendarView({ data, isDark, onSelect }) {
+    function CalendarView({ data, isDark, onSelect, activeFortresses }) {
       const [month, setMonth] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
       const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
       const daysInMonth = new Date(month.y, month.m + 1, 0).getDate();
@@ -992,7 +1006,7 @@
         const dt = new Date(k);
         const isFar = data.settings.far_review.active_days.includes(dt.getDay());
         const isRest = data.plan.rest_days.includes(dt.getDay());
-        const expected = FORTRESSES.filter((f) => {
+        const expected = activeFortresses.filter((f) => {
           if (f.key === 'far_review') return isFar;
           if ((f.key === 'new_memorization' || f.key === 'near_review') && isRest) return false;
           return true;
@@ -1249,7 +1263,7 @@
     }
 
     // ===== Stats =====
-    function Stats({ data, isDark, stats }) {
+    function Stats({ data, isDark, stats, activeFortresses }) {
       const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
       const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
       return (
@@ -1270,7 +1284,7 @@
           <div className={`rounded-2xl border ${cardBg} p-5`}>
             <h3 className="font-bold mb-4">الأداء حسب الحصن</h3>
             <div className="space-y-3">
-              {FORTRESSES.map((f) => {
+              {activeFortresses.map((f) => {
                 const s = stats.perFortress[f.key];
                 const pct = Math.round((s.completed / stats.daysInMonth) * 100);
                 return (
@@ -1315,7 +1329,7 @@
     }
 
     // ===== Settings =====
-    function SettingsPage({ data, update, isDark }) {
+    function SettingsPage({ data, update, isDark, activeFortresses }) {
       const cardBg = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-stone-200';
       const inputBg = isDark ? 'bg-slate-900 border-slate-700' : 'bg-stone-50 border-stone-200';
       const subtle = isDark ? 'text-slate-400' : 'text-slate-500';
@@ -1337,6 +1351,22 @@
               </div>
               <button onClick={() => update((d) => { d.settings = { ...d.settings, dark_mode: !d.settings.dark_mode }; return d; })} className={`relative w-12 h-7 rounded-full transition ${data.settings.dark_mode ? 'bg-emerald-500' : 'bg-stone-300'}`}>
                 <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition ${data.settings.dark_mode ? 'right-1' : 'right-6'}`} />
+              </button>
+            </div>
+          </div>
+
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <p className="font-semibold">تفعيل حصن التحضير</p>
+                <p className={`text-xs mt-0.5 ${subtle}`}>
+                  {data.settings.preparation_enabled !== false
+                    ? 'حصن التحضير مفعّل ويظهر في جميع الشاشات'
+                    : 'حصن التحضير مخفي من جميع الشاشات (البيانات القديمة محفوظة)'}
+                </p>
+              </div>
+              <button onClick={() => update((d) => { d.settings = { ...d.settings, preparation_enabled: d.settings.preparation_enabled === false }; return d; })} className={`relative w-12 h-7 rounded-full transition shrink-0 ${data.settings.preparation_enabled !== false ? 'bg-emerald-500' : 'bg-stone-300'}`}>
+                <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition ${data.settings.preparation_enabled !== false ? 'right-1' : 'right-6'}`} />
               </button>
             </div>
           </div>
@@ -1397,7 +1427,7 @@
           <div className={`rounded-2xl border ${cardBg} p-5`}>
             <h3 className="font-bold mb-4">المدة المستهدفة لكل حصن (دقيقة)</h3>
             <div className="space-y-3">
-              {FORTRESSES.map((f) => (
+              {activeFortresses.map((f) => (
                 <div key={f.key} className="flex items-center justify-between gap-3">
                   <span className="text-sm">{f.name}</span>
                   <input type="number" min="0" value={data.settings.targets[f.key] || 0} onChange={(e) => setTarget(f.key, e.target.value)} className={`w-20 px-2 py-1.5 rounded-lg border text-center ${inputBg}`} />
