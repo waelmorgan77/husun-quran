@@ -185,6 +185,15 @@
       reading_continuous: 15, listening_methodical: 15, preparation: 10,
       new_memorization: 30, near_review: 15, far_review: 20,
     };
+    const AMOUNT_OPTIONS = [
+      { key: 'quarter_hezb', label: 'ربع حزب' },
+      { key: 'half_hezb', label: 'نصف حزب' },
+      { key: 'hezb', label: 'حزب' },
+      { key: 'hezb_half', label: 'حزب ونصف' },
+      { key: 'juz', label: 'جزء' },
+      { key: 'two_juz', label: 'جزئين' },
+    ];
+    const amountLabel = (key) => AMOUNT_OPTIONS.find((a) => a.key === key)?.label || 'حزب';
     const STORAGE_KEY = 'husun_quran_data_v2';
 
     const todayKey = () => {
@@ -208,15 +217,25 @@
     const loadData = () => {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (!parsed.settings.amounts) {
+            parsed.settings.amounts = {
+              reading_continuous: 'two_juz',
+              listening_methodical: 'hezb',
+            };
+          }
+          return parsed;
+        }
       } catch (e) {}
       return {
-        plan: { daily_pages: 0.5, start_page: 2, end_page: 604, rest_days: [5], start_date: todayKey() },
+        plan: { daily_pages: 1, start_page: 2, end_page: 604, rest_days: [5], start_date: todayKey() },
         settings: {
           dark_mode: false,
           targets: { ...DEFAULT_TARGETS },
           far_review: { active_days: [6], page_cap: 40 },
           near_review_pages: 20,
+          amounts: { reading_continuous: 'two_juz', listening_methodical: 'hezb' },
         },
         logs: {},
       };
@@ -547,6 +566,17 @@
                 const fl = todayLog.fortresses[f.key];
                 const status = fl?.status || 'not_completed';
                 const isExpected = todayExpected.includes(f);
+                const mins = data.settings.targets[f.key] || 0;
+                let amountText = '';
+                if (f.key === 'reading_continuous') amountText = amountLabel(data.settings.amounts?.reading_continuous || 'two_juz');
+                else if (f.key === 'listening_methodical') amountText = amountLabel(data.settings.amounts?.listening_methodical || 'hezb');
+                else if (f.key === 'preparation') amountText = 'أسبوعي + ليلي + قبلي';
+                else if (f.key === 'new_memorization') {
+                  const tm = pagesForDate(data.plan, todayKey());
+                  amountText = tm ? (data.plan.daily_pages === 0.5 ? 'نصف صفحة' : data.plan.daily_pages === 1 ? 'صفحة' : `${data.plan.daily_pages} صفحات`) : 'يوم راحة';
+                }
+                else if (f.key === 'near_review') amountText = `${data.settings.near_review_pages} صفحة`;
+                else if (f.key === 'far_review') amountText = `حتى ${data.settings.far_review.page_cap} صفحة`;
                 return (
                   <div key={f.key} className={`rounded-xl border ${cardBg} p-4 ${!isExpected ? 'opacity-40' : ''}`}>
                     <div className="flex items-start justify-between gap-2">
@@ -555,7 +585,19 @@
                           <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${colorClasses[f.color]} flex items-center justify-center text-white text-xs font-bold`}>{f.fortress}</div>
                           <h4 className="font-semibold">{f.name}</h4>
                         </div>
-                        <p className={`text-xs mt-1.5 ${subtle}`}>{!isExpected ? 'غير مطلوب اليوم' : f.desc}</p>
+                        {isExpected ? (
+                          <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{amountText}</span>
+                            {mins > 0 && (
+                              <>
+                                <span className={`text-xs ${subtle}`}>·</span>
+                                <span className={`text-xs ${subtle}`}>{mins} د</span>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <p className={`text-xs mt-1.5 ${subtle}`}>غير مطلوب اليوم</p>
+                        )}
                       </div>
                       {isExpected && <StatusBadge status={status} />}
                     </div>
@@ -616,6 +658,8 @@
       const nearRange = nearReviewRange(data.plan, selectedDate, data.settings.near_review_pages);
       const farRange = isFar ? farReviewRange(data.plan, selectedDate, data.settings.near_review_pages, data.settings.far_review.page_cap) : null;
       const fortressDetail = (key) => {
+        if (key === 'reading_continuous') return amountLabel(data.settings.amounts?.reading_continuous || 'two_juz');
+        if (key === 'listening_methodical') return amountLabel(data.settings.amounts?.listening_methodical || 'hezb');
         if (key === 'new_memorization' && todayMemo) return `صفحات ${todayMemo.from}${todayMemo.from === todayMemo.to ? '' : ' – ' + todayMemo.to} (${surahForPage(Math.floor(todayMemo.from)).name})`;
         if (key === 'near_review' && nearRange) return `صفحات ${nearRange.from} – ${nearRange.to}`;
         if (key === 'far_review' && farRange) return `صفحات ${farRange.from} – ${farRange.to}`;
@@ -803,7 +847,8 @@
         if (!isRest && log.fortresses.new_memorization?.status === 'completed') weekPagesDone += data.plan.daily_pages;
       });
       const consistency = weekTotal > 0 ? Math.round((weekDone / weekTotal) * 100) : 0;
-      const halfHezb = data.plan.daily_pages === 0.5 ? 'جزئين' : 'حزب';
+      const readingLabel = amountLabel(data.settings.amounts?.reading_continuous || 'two_juz');
+      const listeningLabel = amountLabel(data.settings.amounts?.listening_methodical || 'hezb');
 
       return (
         <div className="space-y-4">
@@ -844,8 +889,8 @@
                     <th className={`p-1.5 border ${borderClr} text-center`} rowSpan={2}>الحصن الخامس</th>
                   </tr>
                   <tr className={subHeadBg}>
-                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>القراءة المستمرة<br /><span className={`text-[9px] ${subtle}`}>({halfHezb} يومياً)</span></th>
-                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>الاستماع المنهجي<br /><span className={`text-[9px] ${subtle}`}>(حزب يومياً)</span></th>
+                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>القراءة المستمرة<br /><span className={`text-[9px] ${subtle}`}>({readingLabel} يومياً)</span></th>
+                    <th className={`p-1.5 border ${borderClr} text-center font-normal`}>الاستماع المنهجي<br /><span className={`text-[9px] ${subtle}`}>({listeningLabel} يومياً)</span></th>
                     <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>إسبوعي ({weekPagesTarget} صفحات)</span></th>
                     <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>ليلي (15د+15د)</span></th>
                     <th className={`p-1.5 border ${borderClr} text-center font-normal`}>التحضير<br /><span className={`text-[9px] ${subtle}`}>قبلي (15د قبل الحفظ)</span></th>
@@ -879,11 +924,11 @@
                           <div className={`text-[9px] font-normal ${subtle}`}>{d.getDate()}/{d.getMonth()+1}</div>
                         </td>
                         <td className={`p-1.5 border ${borderClr} text-center`}>
-                          <div className="text-[9px] mb-0.5 text-stone-400">{halfHezb}</div>
+                          <div className="text-[9px] mb-0.5 text-stone-400">{readingLabel}</div>
                           {cellSymbol(log.fortresses.reading_continuous?.status)}
                         </td>
                         <td className={`p-1.5 border ${borderClr} text-center`}>
-                          <div className="text-[9px] mb-0.5 text-stone-400">حزب</div>
+                          <div className="text-[9px] mb-0.5 text-stone-400">{listeningLabel}</div>
                           {cellSymbol(log.fortresses.listening_methodical?.status)}
                         </td>
                         <td className={`p-1.5 border ${borderClr} text-center`}>
@@ -1322,6 +1367,31 @@
             <div>
               <label className="text-sm font-semibold mb-2 block">عدد الصفحات قبل الحفظ الجديد</label>
               <input type="number" min="1" max="100" value={data.settings.near_review_pages} onChange={(e) => update((d) => { d.settings = { ...d.settings, near_review_pages: Number(e.target.value) }; return d; })} className={`w-full px-3 py-2 rounded-xl border ${inputBg} text-center`} />
+            </div>
+          </div>
+          <div className={`rounded-2xl border ${cardBg} p-5`}>
+            <h3 className="font-bold mb-4">المقدار اليومي للقراءة والاستماع</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold mb-2 block">القراءة المستمرة</label>
+                <select
+                  value={data.settings.amounts?.reading_continuous || 'two_juz'}
+                  onChange={(e) => update((d) => { d.settings = { ...d.settings, amounts: { ...(d.settings.amounts || {}), reading_continuous: e.target.value } }; return d; })}
+                  className={`w-full px-3 py-2.5 rounded-xl border ${inputBg}`}
+                >
+                  {AMOUNT_OPTIONS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-semibold mb-2 block">الاستماع المنهجي</label>
+                <select
+                  value={data.settings.amounts?.listening_methodical || 'hezb'}
+                  onChange={(e) => update((d) => { d.settings = { ...d.settings, amounts: { ...(d.settings.amounts || {}), listening_methodical: e.target.value } }; return d; })}
+                  className={`w-full px-3 py-2.5 rounded-xl border ${inputBg}`}
+                >
+                  {AMOUNT_OPTIONS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+                </select>
+              </div>
             </div>
           </div>
           <div className={`rounded-2xl border ${cardBg} p-5`}>
